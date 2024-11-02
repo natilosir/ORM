@@ -26,7 +26,7 @@ $users = DB::Table('users')
 
 <br>
 
-Count users with where condition
+- Count users with where condition
 ```bash
 $userCount = DB::Table('users')
     ->count();
@@ -34,7 +34,7 @@ $userCount = DB::Table('users')
 
 <br>
 
-Search with multiple conditions
+- Search with multiple conditions
 ```bash
 $searchResults = DB::Table('users')
     ->search(['name' => 'Jane', 'email' => 'example.com'])
@@ -49,7 +49,7 @@ foreach ($searchResults as $result) {
 
 <br>
 
-Use the orderBy clause to sort users by email in ascending order with a limit
+- Use the orderBy clause to sort users by email in ascending order with a limit
 ```bash
 $orderedResults = DB::Table('users')
     ->where('name', 'John')
@@ -65,7 +65,7 @@ foreach ($orderedResults as $result) {
 
 <br>
 
-Insert new data with array
+- Insert new data with array
 ```bash
 $newUser = [
     'name'  => 'Jane Doe',
@@ -76,7 +76,7 @@ DB::Table('users')
 
 <br>
 
-Insert new data with model instance eloquent
+- Insert new data with model instance eloquent
 ```bash
 $data        = DB::Table('users');
 $data->user  = 'first';
@@ -87,7 +87,7 @@ $data->save();
 
 <br>
 
-Update data with array
+- Update data with array
 ```bash
 $updateData = [
     'name'  => 'John Smith',
@@ -98,7 +98,7 @@ DB::Table('users')
 
 <br>
 
-Update data with single value
+- Update data with single value
 ```bash
 $updateDataSingle = 'Jane Smith';
 DB::Table('users')
@@ -107,7 +107,7 @@ DB::Table('users')
 
 <br>
 
-Delete data
+- Delete data
 ```bash
 DB::Table('users')
     ->delete(1);
@@ -115,7 +115,7 @@ DB::Table('users')
 
 <br>
 
-Run a custom SQL query
+- Run a custom SQL query
 ```bash
 $customQueryResults = DB::Table('users')
     ->query("SELECT * FROM users WHERE email LIKE '%example.com%' LIMIT 5");
