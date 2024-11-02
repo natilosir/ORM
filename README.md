@@ -105,6 +105,7 @@ DB::Table('users')
     ->update(2, ['name' => $updateDataSingle]);
 ```
 
+<br>
 
 Delete data
 ```bash
