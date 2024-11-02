@@ -24,11 +24,17 @@ $users = DB::Table('users')
     
 ```
 
+
+
+
 Count users with where condition
 ```bash
 $userCount = DB::Table('users')
     ->count();
 ```
+
+
+
 
 Search with multiple conditions
 ```bash
@@ -42,6 +48,9 @@ foreach ($searchResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
+
+
+
 
 Use the orderBy clause to sort users by email in ascending order with a limit
 ```bash
@@ -57,6 +66,9 @@ foreach ($orderedResults as $result) {
 }
 ```
 
+
+
+
 Insert new data with array
 ```bash
 $newUser = [
@@ -65,6 +77,9 @@ $newUser = [
 DB::Table('users')
     ->insert($newUser);
 ```
+
+
+
 
 Insert new data with model instance eloquent
 ```bash
@@ -75,6 +90,9 @@ $data->email = 'third';
 $data->save();
 ```
 
+
+
+
 Update data with array
 ```bash
 $updateData = [
@@ -84,6 +102,9 @@ DB::Table('users')
     ->update(1, $updateData);
 ```
 
+
+
+
 Update data with single value
 ```bash
 $updateDataSingle = 'Jane Smith';
@@ -91,11 +112,17 @@ DB::Table('users')
     ->update(2, ['name' => $updateDataSingle]);
 ```
 
+
+
+
 Delete data
 ```bash
 DB::Table('users')
     ->delete(1);
 ```
+
+
+
 
 Run a custom SQL query
 ```bash
