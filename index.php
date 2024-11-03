@@ -15,6 +15,7 @@ foreach ($users as $user) {
 
 echo 'Count users with where condition<br>';
 $userCount = DB::Table('users')
+    ->where('name', 'second')
     ->count();
 
 echo 'Total number of users named John: '.$userCount.'<br>';
@@ -44,6 +45,7 @@ foreach ($orderedResults as $result) {
 
 echo 'Insert new data with array<br>';
 $newUser = [
+    'user'  => 'Jane.Doe',
     'name'  => 'Jane Doe',
     'email' => 'jane.doe@example.com'];
 DB::Table('users')
@@ -58,6 +60,7 @@ $data->save();
 
 echo 'Update data with array<br>';
 $updateData = [
+    'user'  => 'Jane.Doe',
     'name'  => 'John Smith',
     'email' => 'john.smith@example.com'];
 DB::Table('users')
@@ -67,6 +70,13 @@ echo 'Update data with single value<br>';
 $updateDataSingle = 'Jane Smith';
 DB::Table('users')
     ->update(2, ['name' => $updateDataSingle]);
+
+echo 'Update data with model instance eloquent<br>';
+$data        = DB::Table('users');
+$data->user  = 'first';
+$data->name  = 'second';
+$data->email = 'third';
+$data->save(1);
 
 echo 'Delete data<br>';
 DB::Table('users')

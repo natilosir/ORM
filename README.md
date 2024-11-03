@@ -11,10 +11,11 @@ ORM PHP
 ```bash
 git clone https://github.com/natilosir/ORM/
 ```
+<br><br>
 
 ## example
 
-Select all data with chaining methods
+- Select all data with chaining methods
 ```bash
 $users = DB::Table('users')
     ->where('name', 'Jane Doe')
@@ -23,16 +24,6 @@ $users = DB::Table('users')
     ->get();
     
 ```
-
-<br>
-
-- Count users with where condition
-```bash
-$userCount = DB::Table('users')
-    ->count();
-```
-
-<br>
 
 - Search with multiple conditions
 ```bash
@@ -47,7 +38,12 @@ foreach ($searchResults as $result) {
 }
 ```
 
-<br>
+- Count users with where condition
+```bash
+$userCount = DB::Table('users')
+    ->where('name','Jane Doe') // or search
+    ->count();
+```
 
 - Use the orderBy clause to sort users by email in ascending order with a limit
 ```bash
@@ -63,18 +59,15 @@ foreach ($orderedResults as $result) {
 }
 ```
 
-<br>
-
 - Insert new data with array
 ```bash
 $newUser = [
     'name'  => 'Jane Doe',
     'email' => 'jane.doe@example.com'];
+    
 DB::Table('users')
     ->insert($newUser);
 ```
-
-<br>
 
 - Insert new data with model instance eloquent
 ```bash
@@ -85,40 +78,36 @@ $data->email = 'third';
 $data->save();
 ```
 
-<br>
-
 - Update data with array
 ```bash
 $updateData = [
     'name'  => 'John Smith',
     'email' => 'john.smith@example.com'];
+    
 DB::Table('users')
-    ->update(1, $updateData);
+    ->update(1, $updateData); // 1 is id
 ```
 
-<br>
-
-- Update data with single value
+- Update data with model instance eloquent
 ```bash
-$updateDataSingle = 'Jane Smith';
-DB::Table('users')
-    ->update(2, ['name' => $updateDataSingle]);
+$data        = DB::Table('users');
+$data->user  = 'first';
+$data->name  = 'second';
+$data->email = 'third';
+$data->save(1); // 1 is id
 ```
-
-<br>
 
 - Delete data
 ```bash
 DB::Table('users')
-    ->delete(1);
+    ->delete(1); // 1 is id
 ```
-
-<br>
 
 - Run a custom SQL query
 ```bash
 $customQueryResults = DB::Table('users')
     ->query("SELECT * FROM users WHERE email LIKE '%example.com%' LIMIT 5");
+
 foreach ($customQueryResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }

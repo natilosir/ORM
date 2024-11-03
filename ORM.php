@@ -74,14 +74,30 @@ class DB
         $this->data[$name] = $value;
     }
 
-    public function save()
+    public function save($id = null)
     {
-        $columns      = implode(', ', array_keys($this->data));
-        $placeholders = implode(', ', array_fill(0, count($this->data), '?'));
-        $values       = array_values($this->data);
-        $sql          = 'INSERT INTO '.self::$table." ($columns) VALUES ($placeholders)";
-        $stmt         = self::$connection->prepare($sql);
-        $stmt->execute($values);
+        if (empty($id)) {
+            $columns      = implode(', ', array_keys($this->data));
+            $placeholders = implode(', ', array_fill(0, count($this->data), '?'));
+            $values       = array_values($this->data);
+            $sql          = 'INSERT INTO '.self::$table." ($columns) VALUES ($placeholders)";
+            $stmt         = self::$connection->prepare($sql);
+            $stmt->execute($values);
+        }if (is_int($id)) {
+            $set = '';
+            foreach ($this->data as $column => $value) {
+                $set .= "$column = :$column, ";
+            }
+            $set  = rtrim($set, ', ');
+            $sql  = 'UPDATE '.self::$table." SET $set WHERE id = :id";
+            $stmt = self::$connection->prepare($sql);
+            foreach ($this->data as $column => $value) {
+                $stmt->bindValue(":$column", $value);
+            }
+            $stmt->bindValue(':id', $id);
+
+            return $stmt->execute();
+        }
     }
 
     public function count()
