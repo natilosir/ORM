@@ -5,9 +5,13 @@ require 'Database.php';
 class DB
 {
     private static $connection;
+
     private static $table;
+
     private static $query;
+
     private static $ORDER;
+
     private static $limit;
 
     private $data = [];
@@ -42,8 +46,6 @@ class DB
         return $this;
     }
 
-
-    
     public function where($column, $value)
     {
         self::$query .= " WHERE $column = '$value'";
@@ -86,8 +88,8 @@ class DB
         self::$query.
         self::$ORDER.
         self::$limit
-    
-    );
+
+        );
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -101,37 +103,41 @@ class DB
     public function save($params = null)
     {
         if (is_array($params)) {
-            $column = $params[0];
-            $id = $params[1];
+            $keys   = array_keys($params);
+            $column = $keys[0];
+            $id     = $params[$column];
         } else {
-            $column = 'id'; 
-            $id = $params;
+            $column = 'id';
+            $id     = $params;
         }
-    
+
         if (empty($id)) {
             $columns      = implode(', ', array_keys($this->data));
             $placeholders = implode(', ', array_fill(0, count($this->data), '?'));
             $values       = array_values($this->data);
             $sql          = 'INSERT INTO '.self::$table." ($columns) VALUES ($placeholders)";
             $stmt         = self::$connection->prepare($sql);
-            $stmt->execute($values);
+
+            return $stmt->execute($values);
         } else {
             $set = '';
-            foreach ($this->data as $column => $value) {
-                $set .= "$column = :$column, ";
+            foreach ($this->data as $col => $value) {
+                $set .= "$col = :$col, ";
             }
-            $set  = rtrim($set, ', ');
-            $sql  = 'UPDATE '.self::$table." SET $set WHERE $column = :id";
+            $set = rtrim($set, ', ');
+            $sql = 'UPDATE '.self::$table." SET $set WHERE $column = :id";
+            echo $sql;
+
             $stmt = self::$connection->prepare($sql);
-            foreach ($this->data as $column => $value) {
-                $stmt->bindValue(":$column", $value);
+            foreach ($this->data as $col => $value) {
+                $stmt->bindValue(":$col", $value);
             }
+
             $stmt->bindValue(':id', $id);
-    
+
             return $stmt->execute();
         }
     }
-    
 
     public function count()
     {
@@ -165,46 +171,46 @@ class DB
     }
 
     public function update($params, $data)
-{
-    if (is_array($params)) {
-        $column = $params[0];
-        $id = $params[1];
-    } else {
-        $column = 'id'; 
-        $id = $params;
-    }
+    {
+        if (is_array($params)) {
+            $keys   = array_keys($params);
+            $column = $keys[0];
+            $id     = $params[$column];
+        } else {
+            $column = 'id';
+            $id     = $params;
+        }
 
-    $set = '';
-    foreach ($data as $columnName => $value) {
-        $set .= "$columnName = :$columnName, ";
-    }
-    $set  = rtrim($set, ', ');
-    $stmt = self::$connection->prepare('UPDATE '.self::$table." SET $set WHERE $column = :id");
-    foreach ($data as $columnName => $value) {
-        $stmt->bindValue(":$columnName", $value);
-    }
-    $stmt->bindValue(':id', $id);
+        $set = '';
+        foreach ($data as $columnName => $value) {
+            $set .= "$columnName = :$columnName, ";
+        }
+        $set  = rtrim($set, ', ');
+        $stmt = self::$connection->prepare('UPDATE '.self::$table." SET $set WHERE $column = :id");
+        foreach ($data as $columnName => $value) {
+            $stmt->bindValue(":$columnName", $value);
+        }
+        $stmt->bindValue(':id', $id);
 
-    return $stmt->execute();
-}
-
+        return $stmt->execute();
+    }
 
     public function delete($params)
     {
         if (is_array($params)) {
-            $column = $params[0];
-            $id = $params[1];
+            $keys   = array_keys($params);
+            $column = $keys[0];
+            $id     = $params[$column];
         } else {
-            $column = 'id'; 
-            $id = $params;
+            $column = 'id';
+            $id     = $params;
         }
-    
-        $stmt = self::$connection->prepare('DELETE FROM '.self::$table.' WHERE ' . $column . ' = :id');
+
+        $stmt = self::$connection->prepare('DELETE FROM '.self::$table.' WHERE '.$column.' = :id');
         $stmt->bindValue(':id', $id);
-    
+
         return $stmt->execute();
     }
-    
 
     public function query($sql)
     {
