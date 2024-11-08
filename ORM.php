@@ -5,10 +5,10 @@ require 'Database.php';
 class DB
 {
     private static $connection;
-
     private static $table;
-
     private static $query;
+    private static $ORDER;
+    private static $limit;
 
     private $data = [];
 
@@ -26,6 +26,24 @@ class DB
         return new self();
     }
 
+    public function search($conditions)
+    {
+        $query = ' WHERE ';
+        $first = true;
+        foreach ($conditions as $column => $value) {
+            if (! $first) {
+                $query .= ' AND ';
+            }
+            $query .= "$column LIKE '%$value%'";
+            $first = false;
+        }
+        self::$query .= $query;
+
+        return $this;
+    }
+
+
+    
     public function where($column, $value)
     {
         self::$query .= " WHERE $column = '$value'";
@@ -49,21 +67,27 @@ class DB
 
     public function orderBy($column, $direction)
     {
-        self::$query .= " ORDER BY $column $direction";
+        self::$ORDER = " ORDER BY $column $direction";
 
         return $this;
     }
 
     public function limit($limit)
     {
-        self::$query .= " LIMIT $limit";
+        self::$limit = " LIMIT $limit";
 
         return $this;
     }
 
     public function get()
     {
-        $stmt = self::$connection->prepare('SELECT * FROM '.self::$table.self::$query);
+        $stmt = self::$connection->prepare('SELECT * FROM '.
+        self::$table.
+        self::$query.
+        self::$ORDER.
+        self::$limit
+    
+    );
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -74,8 +98,16 @@ class DB
         $this->data[$name] = $value;
     }
 
-    public function save($id = null)
+    public function save($params = null)
     {
+        if (is_array($params)) {
+            $column = $params[0];
+            $id = $params[1];
+        } else {
+            $column = 'id'; 
+            $id = $params;
+        }
+    
         if (empty($id)) {
             $columns      = implode(', ', array_keys($this->data));
             $placeholders = implode(', ', array_fill(0, count($this->data), '?'));
@@ -83,45 +115,34 @@ class DB
             $sql          = 'INSERT INTO '.self::$table." ($columns) VALUES ($placeholders)";
             $stmt         = self::$connection->prepare($sql);
             $stmt->execute($values);
-        }if (is_int($id)) {
+        } else {
             $set = '';
             foreach ($this->data as $column => $value) {
                 $set .= "$column = :$column, ";
             }
             $set  = rtrim($set, ', ');
-            $sql  = 'UPDATE '.self::$table." SET $set WHERE id = :id";
+            $sql  = 'UPDATE '.self::$table." SET $set WHERE $column = :id";
             $stmt = self::$connection->prepare($sql);
             foreach ($this->data as $column => $value) {
                 $stmt->bindValue(":$column", $value);
             }
             $stmt->bindValue(':id', $id);
-
+    
             return $stmt->execute();
         }
     }
+    
 
     public function count()
     {
-        $stmt = self::$connection->prepare('SELECT COUNT(*) FROM '.self::$table.self::$query);
+        $stmt = self::$connection->prepare('SELECT COUNT(*) FROM '.
+        self::$table.
+        self::$query.
+        self::$ORDER.
+        self::$limit);
         $stmt->execute();
 
         return $stmt->fetchColumn();
-    }
-
-    public function search($conditions)
-    {
-        $query = ' WHERE ';
-        $first = true;
-        foreach ($conditions as $column => $value) {
-            if (! $first) {
-                $query .= ' AND ';
-            }
-            $query .= "$column LIKE '%$value%'";
-            $first = false;
-        }
-        self::$query .= $query;
-
-        return $this;
     }
 
     public function insert($data)
@@ -143,29 +164,47 @@ class DB
         }
     }
 
-    public function update($id, $data)
-    {
-        $set = '';
-        foreach ($data as $column => $value) {
-            $set .= "$column = :$column, ";
-        }
-        $set  = rtrim($set, ', ');
-        $stmt = self::$connection->prepare('UPDATE '.self::$table." SET $set WHERE id = :id");
-        foreach ($data as $column => $value) {
-            $stmt->bindValue(":$column", $value);
-        }
-        $stmt->bindValue(':id', $id);
-
-        return $stmt->execute();
+    public function update($params, $data)
+{
+    if (is_array($params)) {
+        $column = $params[0];
+        $id = $params[1];
+    } else {
+        $column = 'id'; 
+        $id = $params;
     }
 
-    public function delete($id)
-    {
-        $stmt = self::$connection->prepare('DELETE FROM '.self::$table.' WHERE id = :id');
-        $stmt->bindValue(':id', $id);
+    $set = '';
+    foreach ($data as $columnName => $value) {
+        $set .= "$columnName = :$columnName, ";
+    }
+    $set  = rtrim($set, ', ');
+    $stmt = self::$connection->prepare('UPDATE '.self::$table." SET $set WHERE $column = :id");
+    foreach ($data as $columnName => $value) {
+        $stmt->bindValue(":$columnName", $value);
+    }
+    $stmt->bindValue(':id', $id);
 
+    return $stmt->execute();
+}
+
+
+    public function delete($params)
+    {
+        if (is_array($params)) {
+            $column = $params[0];
+            $id = $params[1];
+        } else {
+            $column = 'id'; 
+            $id = $params;
+        }
+    
+        $stmt = self::$connection->prepare('DELETE FROM '.self::$table.' WHERE ' . $column . ' = :id');
+        $stmt->bindValue(':id', $id);
+    
         return $stmt->execute();
     }
+    
 
     public function query($sql)
     {
