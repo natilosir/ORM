@@ -64,15 +64,15 @@ $updateData = [
     'name'  => 'John Smith',
     'email' => 'john.smith@example.com'];
 DB::Table('users')
-    ->update(1, $updateData);// 1 is id and where is with array 
- // ->update(['name' => 'Jane Doe'], $updateData);
+    ->update(1, $updateData); // 1 is id and where is with array
+// ->update(['name' => 'Jane Doe'], $updateData);
 
 echo 'Update data with model instance eloquent<br>';
 $data        = DB::Table('users');
 $data->user  = 'first';
 $data->name  = 'second';
 $data->email = 'third';
-$data->save(1); // 1 is id and where is with array $data->save('name' => 'Jane.Doe'); 
+$data->save(); // 1 is id and where is with array $data->save('name' => 'Jane.Doe');
 
 echo 'Delete data<br>';
 DB::Table('users')

@@ -26,11 +26,13 @@ class DB
     {
         self::$table = $table;
         self::$query = '';
+        self::$ORDER = '';
+        self::$limit = '';
 
         return new self();
     }
 
-    public function search($conditions)
+    public static function search($conditions)
     {
         $query = ' WHERE ';
         $first = true;
@@ -43,53 +45,60 @@ class DB
         }
         self::$query .= $query;
 
-        return $this;
+        return new self();
     }
 
-    public function where($column, $value)
+    public static function where($column, $value)
     {
-        self::$query .= " WHERE $column = '$value'";
+        if (empty(self::$query)) {
+            self::$query = " WHERE $column = '$value'";
+        } else {
+            self::$query .= " AND $column = '$value'";
+        }
 
-        return $this;
+        return new self();
     }
 
-    public function orwhere($column, $value)
+    public static function orwhere($column, $value)
     {
-        self::$query .= " OR $column = '$value'";
+        if (empty(self::$query)) {
+            self::$query = " WHERE $column = '$value'";
+        } else {
+            self::$query .= " OR $column = '$value'";
+        }
 
-        return $this;
+        return new self();
     }
 
-    public function andwhere($column, $value)
+    public static function andwhere($column, $value)
     {
         self::$query .= " AND $column = '$value'";
 
-        return $this;
+        return new self();
     }
 
-    public function orderBy($column, $direction)
+    public static function orderBy($column, $direction)
     {
         self::$ORDER = " ORDER BY $column $direction";
 
-        return $this;
+        return new self();
     }
 
-    public function limit($limit)
+    public static function limit($limit)
     {
         self::$limit = " LIMIT $limit";
 
-        return $this;
+        return new self();
     }
 
-    public function get()
+    public static function get()
     {
-        $stmt = self::$connection->prepare('SELECT * FROM '.
+        $sql = 'SELECT * FROM '.
         self::$table.
         self::$query.
         self::$ORDER.
-        self::$limit
-
-        );
+        self::$limit;
+        $stmt = self::$connection->prepare($sql);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -126,7 +135,6 @@ class DB
             }
             $set = rtrim($set, ', ');
             $sql = 'UPDATE '.self::$table." SET $set WHERE $column = :id";
-            echo $sql;
 
             $stmt = self::$connection->prepare($sql);
             foreach ($this->data as $col => $value) {
