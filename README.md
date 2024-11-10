@@ -1,5 +1,5 @@
 # ORM
-ORM PHP
+eloquent ORM in PHP
 
 ## required
 
