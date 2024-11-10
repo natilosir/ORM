@@ -14,6 +14,10 @@ class DB
 
     private static $limit;
 
+    private static $distinct = false;
+
+    private static $columns = '*';
+
     private $data = [];
 
     public function __construct()
@@ -24,10 +28,30 @@ class DB
 
     public static function Table($table)
     {
-        self::$table = $table;
-        self::$query = '';
-        self::$ORDER = '';
-        self::$limit = '';
+        self::$table    = $table;
+        self::$query    = '';
+        self::$ORDER    = '';
+        self::$limit    = '';
+        self::$distinct = false;
+        self::$columns  = '*';
+
+        return new self();
+    }
+
+    public function distinct()
+    {
+        self::$distinct = true;
+
+        return $this;
+    }
+
+    public static function select($columns)
+    {
+        if (is_array($columns)) {
+            self::$columns = implode(', ', $columns);
+        } else {
+            self::$columns = $columns;
+        }
 
         return new self();
     }
@@ -48,31 +72,29 @@ class DB
         return new self();
     }
 
-    public static function where($column, $value)
+    public static function where($column, $value = null, $operator = '=', $type = 'OR')
     {
-        if (empty(self::$query)) {
-            self::$query = " WHERE $column = '$value'";
+        if (is_array($column)) {
+            foreach ($column as $col => $val) {
+                if (empty(self::$query)) {
+                    self::$query = " WHERE $col $operator '$val'";
+                } else {
+                    self::$query .= " $type $col $operator '$val'";
+                }
+            }
+        } elseif ($value === null) {
+            if (empty(self::$query)) {
+                self::$query = " WHERE $column";
+            } else {
+                self::$query .= " $type $column";
+            }
         } else {
-            self::$query .= " AND $column = '$value'";
+            if (empty(self::$query)) {
+                self::$query = " WHERE $column $operator '$value'";
+            } else {
+                self::$query .= " $type $column $operator '$value'";
+            }
         }
-
-        return new self();
-    }
-
-    public static function orwhere($column, $value)
-    {
-        if (empty(self::$query)) {
-            self::$query = " WHERE $column = '$value'";
-        } else {
-            self::$query .= " OR $column = '$value'";
-        }
-
-        return new self();
-    }
-
-    public static function andwhere($column, $value)
-    {
-        self::$query .= " AND $column = '$value'";
 
         return new self();
     }
@@ -93,11 +115,13 @@ class DB
 
     public static function get()
     {
-        $sql = 'SELECT * FROM '.
-        self::$table.
-        self::$query.
-        self::$ORDER.
-        self::$limit;
+        $selectPart = self::$distinct ? 'SELECT DISTINCT '.self::$columns : 'SELECT '.self::$columns;
+        $sql        = $selectPart.
+            ' FROM '.self::$table.
+            self::$query.
+            self::$ORDER.
+            self::$limit;
+        // echo $sql;
         $stmt = self::$connection->prepare($sql);
         $stmt->execute();
 
@@ -150,10 +174,10 @@ class DB
     public function count()
     {
         $stmt = self::$connection->prepare('SELECT COUNT(*) FROM '.
-        self::$table.
-        self::$query.
-        self::$ORDER.
-        self::$limit);
+            self::$table.
+            self::$query.
+            self::$ORDER.
+            self::$limit);
         $stmt->execute();
 
         return $stmt->fetchColumn();

@@ -5,6 +5,7 @@ require 'ORM.php';
 echo 'Select all data with chaining methods<br>';
 $users = DB::Table('users')
     ->where('name', 'Jane Doe')
+    ->where('email', 'Jane Doe')
     ->orderBy('id', 'DESC')
     ->limit(3)
     ->get();
@@ -34,7 +35,7 @@ foreach ($searchResults as $result) {
 echo 'Use the orderBy clause to sort users by email in ascending order with a limit<br>';
 $orderedResults = DB::Table('users')
     ->where('name', 'John')
-    ->andwhere('name', 'jane')
+    ->where('name', 'jane')
     ->orderBy('id', 'deSC')
     ->limit(3)
     ->get();
@@ -77,6 +78,16 @@ $data->save(); // 1 is id and where is with array $data->save('name' => 'Jane.Do
 echo 'Delete data<br>';
 DB::Table('users')
     ->delete(1); // 1 is id and where is with array ->delete(['name' => 'ddd']);
+
+echo 'Using DISTINCT in SQL<br>';
+$users = DB::Table('users')
+    ->select('email')
+    ->distinct()
+    ->get();
+
+foreach ($users as $user) {
+    echo $user['email'].'<br>';
+}
 
 echo 'Run a custom SQL query<br>';
 $customQueryResults = DB::Table('users')
