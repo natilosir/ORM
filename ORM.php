@@ -117,7 +117,7 @@ class DB
     {
         self::$limit = ' LIMIT 1';
 
-        return new self();
+        return self::get();
     }
 
     public static function get()
