@@ -72,7 +72,7 @@ class DB
         return new self();
     }
 
-    public static function where($column, $value = null, $operator = '=', $type = 'OR')
+    public static function where($column, $value = null, $operator = '=', $type = 'AND')
     {
         if (is_array($column)) {
             foreach ($column as $col => $val) {
@@ -109,6 +109,13 @@ class DB
     public static function limit($limit)
     {
         self::$limit = " LIMIT $limit";
+
+        return new self();
+    }
+
+    public static function first()
+    {
+        self::$limit = ' LIMIT 1';
 
         return new self();
     }
