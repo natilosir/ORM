@@ -132,7 +132,12 @@ class DB
         $stmt = self::$connection->prepare($sql);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $result = $stmt->fetchAll(PDO::FETCH_OBJ);
+        if (count($result) === 1) {
+            return $result[0];
+        }
+    
+        return $result; 
     }
 
     public function __set($name, $value)
@@ -256,6 +261,6 @@ class DB
         $stmt = self::$connection->prepare($sql);
         $stmt->execute();
 
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 }

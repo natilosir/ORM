@@ -4,11 +4,11 @@ class Database
 {
     private $host = 'localhost'; // Database host
 
-    private $db_name = 'natilos'; // Database name
+    private $db_name = 'natilosi_tbot'; // Database name
 
-    private $username = 'root'; // Database username
+    private $username = 'natilosi_tbot'; // Database username
 
-    private $password = ''; // Database password
+    private $password = 'qwQW12'; // Database password
 
     private $connection;
 
@@ -17,7 +17,7 @@ class Database
         $this->connection = null;
 
         try {
-            $this->connection = new PDO("mysql:host={$this->host};dbname={$this->db_name}", $this->username, $this->password);
+            $this->connection = new PDO("mysql:host={$this->host};dbname={$this->db_name};charset=utf8mb4", $this->username, $this->password);
             $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         } catch (PDOException $exception) {
             echo 'Connection error: '.$exception->getMessage();
