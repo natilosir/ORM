@@ -30,6 +30,7 @@ $users = DB::Table('users')
 $searchResults = DB::Table('users')
     ->search(['name' => 'Jane', 'email' => 'example.com'])
     ->orderBy('id', 'deSC')
+    ->where('age', '>', 25)
     ->limit(3)
     ->get();
 
@@ -42,9 +43,9 @@ foreach ($searchResults as $result) {
 ```bash
 $userCount = DB::Table('users')
  // ->where('age', 25)  or search
-    ->where('age', 25, '>')
-    ->where('age', 25, '>', 'OR')
-    ->where('age', 25, '=', 'and')
+    ->where('age', '>', 25)
+    ->where('age', '>', 25, 'OR')
+    ->where('age', '=', 25, 'and')
     ->count();
 ```
 
