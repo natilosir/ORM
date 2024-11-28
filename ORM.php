@@ -72,32 +72,35 @@ class DB
         return new self();
     }
 
-    public static function where($column, $value = null, $operator = '=', $type = 'AND')
-    {
-        if (is_array($column)) {
-            foreach ($column as $col => $val) {
-                if (empty(self::$query)) {
-                    self::$query = " WHERE $col $operator '$val'";
-                } else {
-                    self::$query .= " $type $col $operator '$val'";
-                }
-            }
-        } elseif ($value === null) {
+public static function where($column, $operator = null, $value = null, $type = 'AND')
+{
+    if (is_array($column)) {
+        foreach ($column as $col => $val) {
             if (empty(self::$query)) {
-                self::$query = " WHERE $column";
+                self::$query = " WHERE $col = '$val'";
             } else {
-                self::$query .= " $type $column";
-            }
-        } else {
-            if (empty(self::$query)) {
-                self::$query = " WHERE $column $operator '$value'";
-            } else {
-                self::$query .= " $type $column $operator '$value'";
+                self::$query .= " $type $col = '$val'";
             }
         }
-
         return new self();
     }
+
+    if (func_num_args() === 2) {
+        $value = $operator;
+        $operator = '=';
+    }
+
+    $condition = "$column $operator '$value'";
+
+    if (empty(self::$query)) {
+        self::$query = " WHERE $condition";
+    } else {
+        self::$query .= " $type $condition";
+    }
+
+    return new self();
+}
+
 
     public static function orderBy($column, $direction)
     {
