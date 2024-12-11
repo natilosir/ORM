@@ -18,6 +18,8 @@ class DB
 
     private static $columns = '*';
 
+    private static $params = []; // اضافه کردن متغیر params برای نگهداری مقادیر
+
     private $data = [];
 
     public function __construct()
@@ -34,6 +36,7 @@ class DB
         self::$limit    = '';
         self::$distinct = false;
         self::$columns  = '*';
+        self::$params   = []; // مقداردهی اولیه برای params
 
         return new self();
     }
@@ -58,52 +61,62 @@ class DB
 
     public static function search($conditions)
     {
-        $query = ' WHERE ';
-        $first = true;
+        if (empty($conditions)) {
+            return new self();
+        }
+
         foreach ($conditions as $column => $value) {
-            if (! $first) {
-                $query .= ' AND ';
-            }
-            $query .= "$column LIKE '%$value%'";
-            $first = false;
-        }
-        self::$query .= $query;
-
-        return new self();
-    }
-
-public static function where($column, $operator = null, $value = null, $type = 'AND')
-{
-    if (is_array($column)) {
-        foreach ($column as $col => $val) {
             if (empty(self::$query)) {
-                self::$query = " WHERE $col = '$val'";
+                self::$query = " WHERE $column LIKE :$column";
             } else {
-                self::$query .= " $type $col = '$val'";
+                self::$query .= " AND $column LIKE :$column";
             }
+            self::$params[":$column"] = "%$value%";
         }
+
         return new self();
     }
 
-    if (func_num_args() === 2) {
-        $value = $operator;
-        $operator = '=';
+    public static function where($column, $operator = null, $value = null, $type = 'AND')
+    {
+        if (is_array($column)) {
+            foreach ($column as $col => $val) {
+                if (empty(self::$query)) {
+                    self::$query = " WHERE $col = :$col";
+                } else {
+                    self::$query .= " $type $col = :$col";
+                }
+                self::$params[":$col"] = $val;
+            }
+
+            return new self();
+        }
+
+        if (func_num_args() === 2) {
+            $value    = $operator;
+            $operator = '=';
+        }
+
+        $condition = "$column $operator :$column";
+
+        if (empty(self::$query)) {
+            self::$query = " WHERE $condition";
+        } else {
+            self::$query .= " $type $condition";
+        }
+
+        self::$params[":$column"] = $value;
+
+        return new self();
     }
-
-    $condition = "$column $operator '$value'";
-
-    if (empty(self::$query)) {
-        self::$query = " WHERE $condition";
-    } else {
-        self::$query .= " $type $condition";
-    }
-
-    return new self();
-}
-
 
     public static function orderBy($column, $direction)
     {
+        $direction = strtoupper($direction);
+        if (! in_array($direction, ['ASC', 'DESC'])) {
+            throw new InvalidArgumentException("Invalid order direction: $direction");
+        }
+
         self::$ORDER = " ORDER BY $column $direction";
 
         return new self();
@@ -131,16 +144,22 @@ public static function where($column, $operator = null, $value = null, $type = '
             self::$query.
             self::$ORDER.
             self::$limit;
-        // echo $sql;
+
         $stmt = self::$connection->prepare($sql);
+
+        // Bind parameters
+        foreach (self::$params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+
         $stmt->execute();
 
         $result = $stmt->fetchAll(PDO::FETCH_OBJ);
         if (count($result) === 1) {
             return $result[0];
         }
-    
-        return $result; 
+
+        return $result;
     }
 
     public function __set($name, $value)
@@ -188,11 +207,15 @@ public static function where($column, $operator = null, $value = null, $type = '
 
     public function count()
     {
-        $stmt = self::$connection->prepare('SELECT COUNT(*) FROM '.
-            self::$table.
-            self::$query.
-            self::$ORDER.
-            self::$limit);
+        $sql = 'SELECT COUNT(*) FROM '.self::$table.self::$query.self::$ORDER.self::$limit;
+
+        $stmt = self::$connection->prepare($sql);
+
+        // Bind all parameters from self::$params
+        foreach (self::$params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
+
         $stmt->execute();
 
         return $stmt->fetchColumn();
@@ -217,27 +240,45 @@ public static function where($column, $operator = null, $value = null, $type = '
         }
     }
 
-    public function update($params, $data)
+    public function update($params, $data = null)
     {
-        if (is_array($params)) {
-            $keys   = array_keys($params);
-            $column = $keys[0];
-            $id     = $params[$column];
-        } else {
-            $column = 'id';
-            $id     = $params;
+        if (empty($data)) {
+            $data = $params;
         }
 
+        // Ensure WHERE conditions are added
+        if (! empty(self::$query)) {
+            $query = 'UPDATE '.self::$table.' SET ';
+        } else {
+            if (is_array($params)) {
+                foreach ($params as $column => $value) {
+                    self::$query .= empty(self::$query) ? " WHERE $column = :w_$column" : " AND $column = :w_$column";
+                    self::$params[":w_$column"] = $value;
+                }
+            } else {
+                throw new Exception('Missing WHERE clause for update.');
+            }
+            $query = 'UPDATE '.self::$table.' SET ';
+        }
+
+        // Generate SET part of the query
         $set = '';
-        foreach ($data as $columnName => $value) {
-            $set .= "$columnName = :$columnName, ";
+        foreach ($data as $column => $value) {
+            $set .= "$column = :s_$column, ";
+            self::$params[":s_$column"] = $value;
         }
-        $set  = rtrim($set, ', ');
-        $stmt = self::$connection->prepare('UPDATE '.self::$table." SET $set WHERE $column = :id");
-        foreach ($data as $columnName => $value) {
-            $stmt->bindValue(":$columnName", $value);
+        $set = rtrim($set, ', ');
+
+        // Final query assembly
+        $query .= $set.self::$query;
+
+        $stmt = self::$connection->prepare($query);
+
+        // Bind parameters
+        foreach (self::$params as $key => $value) {
+            $stmt->bindValue($key, $value);
         }
-        $stmt->bindValue(':id', $id);
+        echo $query;
 
         return $stmt->execute();
     }
@@ -265,5 +306,12 @@ public static function where($column, $operator = null, $value = null, $type = '
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    private static function buildSQL()
+    {
+        $selectPart = self::$distinct ? 'SELECT DISTINCT '.self::$columns : 'SELECT '.self::$columns;
+
+        return $selectPart.' FROM '.self::$table.self::$query.self::$ORDER.self::$limit;
     }
 }
