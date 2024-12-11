@@ -18,7 +18,7 @@ class DB
 
     private static $columns = '*';
 
-    private static $params = []; // اضافه کردن متغیر params برای نگهداری مقادیر
+    private static $params = [];
 
     private $data = [];
 
@@ -36,7 +36,7 @@ class DB
         self::$limit    = '';
         self::$distinct = false;
         self::$columns  = '*';
-        self::$params   = []; // مقداردهی اولیه برای params
+        self::$params   = []; 
 
         return new self();
     }
@@ -147,7 +147,6 @@ class DB
 
         $stmt = self::$connection->prepare($sql);
 
-        // Bind parameters
         foreach (self::$params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -211,7 +210,6 @@ class DB
 
         $stmt = self::$connection->prepare($sql);
 
-        // Bind all parameters from self::$params
         foreach (self::$params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
@@ -246,7 +244,6 @@ class DB
             $data = $params;
         }
 
-        // Ensure WHERE conditions are added
         if (! empty(self::$query)) {
             $query = 'UPDATE '.self::$table.' SET ';
         } else {
@@ -261,7 +258,6 @@ class DB
             $query = 'UPDATE '.self::$table.' SET ';
         }
 
-        // Generate SET part of the query
         $set = '';
         foreach ($data as $column => $value) {
             $set .= "$column = :s_$column, ";
@@ -269,12 +265,10 @@ class DB
         }
         $set = rtrim($set, ', ');
 
-        // Final query assembly
         $query .= $set.self::$query;
 
         $stmt = self::$connection->prepare($query);
 
-        // Bind parameters
         foreach (self::$params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
