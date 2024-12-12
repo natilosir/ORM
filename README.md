@@ -18,8 +18,9 @@ git clone https://github.com/natilosir/ORM/
 - Select all data with chaining methods
 ```bash
 $users = DB::Table('users')
-    ->where('name', 'Jane Doe')
-    ->orderBy('id', 'DESC')
+    ->where('name', 'second')
+    ->where('email', 'third')
+    ->orderBy('id', 'max') // max = DESC, min = ASC
     ->limit(3)
     ->get();
     
@@ -29,7 +30,7 @@ $users = DB::Table('users')
 ```bash
 $searchResults = DB::Table('users')
     ->search(['name' => 'Jane', 'email' => 'example.com'])
-    ->orderBy('id', 'deSC')
+    ->orderBy('id', 'ASC') // max = DESC, min = ASC
     ->where('age', '>', 25)
     ->limit(3)
     ->get();
@@ -54,7 +55,7 @@ $userCount = DB::Table('users')
 $orderedResults = DB::Table('users')
     ->where('name', 'John')
     ->where('name', 'jane')
-    ->orderBy('id', 'deSC')
+    ->orderBy('id', 'deSC') // max = DESC, min = ASC
     ->limit(3)
     ->get();
 
@@ -66,9 +67,9 @@ foreach ($orderedResults as $result) {
 - Insert new data with array
 ```bash
 $newUser = [
+    'user'  => 'Jane.Doe',
     'name'  => 'Jane Doe',
     'email' => 'jane.doe@example.com'];
-    
 DB::Table('users')
     ->insert($newUser);
 ```
@@ -85,11 +86,19 @@ $data->save();
 - Update data with array
 ```bash
 $updateData = [
+    'user'  => 'Jane.Doe',
     'name'  => 'John Smith',
     'email' => 'john.smith@example.com'];
-    
 DB::Table('users')
-    ->update(1, ['name' => $updateDataSingle]); // 1 is id and where is with array ->update(['name' => 'second'], ['name' => $updateDataSingle]);
+    ->update(1, $updateData); // 1 is id and where is with array
+//AND
+DB::Table('users')
+    ->update(['name' => 1, 'user' => 3], $updateData); // update({where}, {UpdateArray})
+//AND
+DB::Table('users')
+//  ->where(['name' => 1, 'user' => 2])
+    ->where('name', 1) //AND oder methods in where
+    ->update($updateData);
 ```
 
 - Update data with model instance eloquent
@@ -104,7 +113,14 @@ $data->save(1); // 1 is id and where is with array $data->save('name' => 'Jane D
 - Delete data
 ```bash
 DB::Table('users')
-    ->delete(1); // 1 is id and where is with array ->delete(['name' => 'Jane Doe']);
+    ->delete(1); // 1 is id
+//AND
+DB::Table('users')
+    ->delete(['name' => 1, 'user' => 6]);
+//AND
+DB::Table('users')
+    ->where(['name' => 1, 'user' => 5]) //AND oder methods in where
+    ->delete();
 ```
 
 - Using DISTINCT in SQL
