@@ -36,7 +36,7 @@ class DB
         self::$limit    = '';
         self::$distinct = false;
         self::$columns  = '*';
-        self::$params   = []; 
+        self::$params   = [];
 
         return new self();
     }
@@ -113,6 +113,13 @@ class DB
     public static function orderBy($column, $direction)
     {
         $direction = strtoupper($direction);
+
+        if ($direction === 'MIN') {
+            $direction = 'ASC';
+        } elseif ($direction === 'MAX') {
+            $direction = 'DESC';
+        }
+
         if (! in_array($direction, ['ASC', 'DESC'])) {
             throw new InvalidArgumentException("Invalid order direction: $direction");
         }
@@ -241,21 +248,22 @@ class DB
     public function update($params, $data = null)
     {
         if (empty($data)) {
-            $data = $params;
+            $data   = $params;
+            $params = null;
         }
 
-        if (! empty(self::$query)) {
-            $query = 'UPDATE '.self::$table.' SET ';
-        } else {
+        if (empty(self::$query)) {
             if (is_array($params)) {
                 foreach ($params as $column => $value) {
                     self::$query .= empty(self::$query) ? " WHERE $column = :w_$column" : " AND $column = :w_$column";
                     self::$params[":w_$column"] = $value;
                 }
+            } elseif ($params !== null) {
+                self::$query           = ' WHERE id = :w_id';
+                self::$params[':w_id'] = $params;
             } else {
                 throw new Exception('Missing WHERE clause for update.');
             }
-            $query = 'UPDATE '.self::$table.' SET ';
         }
 
         $set = '';
@@ -265,31 +273,38 @@ class DB
         }
         $set = rtrim($set, ', ');
 
-        $query .= $set.self::$query;
+        $query = 'UPDATE '.self::$table.' SET '.$set.self::$query;
 
         $stmt = self::$connection->prepare($query);
 
         foreach (self::$params as $key => $value) {
             $stmt->bindValue($key, $value);
         }
-        echo $query;
 
         return $stmt->execute();
     }
 
-    public function delete($params)
+    public function delete($params = null)
     {
-        if (is_array($params)) {
-            $keys   = array_keys($params);
-            $column = $keys[0];
-            $id     = $params[$column];
-        } else {
-            $column = 'id';
-            $id     = $params;
+        if (empty(self::$query)) {
+            if (is_int($params)) {
+                self::$query         = ' WHERE id = :id';
+                self::$params[':id'] = $params;
+            } elseif (is_array($params)) {
+                foreach ($params as $column => $value) {
+                    self::$query .= empty(self::$query) ? " WHERE $column = :w_$column" : " AND $column = :w_$column";
+                    self::$params[":w_$column"] = $value;
+                }
+            } elseif ($params === null) {
+                throw new Exception('Missing WHERE clause for delete.');
+            }
         }
+        $sql  = 'DELETE FROM '.self::$table.self::$query;
+        $stmt = self::$connection->prepare($sql);
 
-        $stmt = self::$connection->prepare('DELETE FROM '.self::$table.' WHERE '.$column.' = :id');
-        $stmt->bindValue(':id', $id);
+        foreach (self::$params as $key => $value) {
+            $stmt->bindValue($key, $value);
+        }
 
         return $stmt->execute();
     }
