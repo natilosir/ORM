@@ -9,6 +9,9 @@ eloquent ORM in PHP
 ## install
 
 ```bash
+composer require natilosir/orm
+```
+```bash
 git clone https://github.com/natilosir/ORM/
 ```
 <br><br>
