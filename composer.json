@@ -1,0 +1,24 @@
+{
+    "name": "natilosir/orm",
+    "description": "A lightweight PHP ORM package",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Your Name",
+            "email": "your-email@example.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.6",
+        "ext-json": "*"
+    },
+    "require-dev": {
+        "laravel/pint": "^1.18"
+    },
+    "autoload": {
+        "psr-4": {
+            "Natilosir\\ORM\\": "src/"
+        }
+    }
+}
