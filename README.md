@@ -1,16 +1,20 @@
-# ORM
-eloquent ORM in PHP
+# Eloquent ORM in PHP
 
-## required
+This is a simple and elegant implementation of an ORM (Object-Relational Mapping) for PHP, designed to work with relational databases using fluent query building and Eloquent-style syntax.
+
+## Requirements
 
 - PHP >= 5.4
 - Composer
 
-## install
+## Installation
+
+You can install this ORM package via Composer:
 
 ```bash
 composer require natilosir/ORM
 ```
+Alternatively, you can clone the repository directly:
 ```bash
 git clone https://github.com/natilosir/ORM/
 ```
@@ -67,7 +71,7 @@ foreach ($orderedResults as $result) {
 }
 ```
 
-- **Insert** new data with **array**
+- **Insert** : Inserting new data with an **array**
 ```php
 $newUser = [
     'user'  => 'Jane.Doe',
@@ -77,7 +81,7 @@ DB::Table('users')
     ->insert($newUser);
 ```
 
-- **Insert** new data with model instance **eloquent**
+- **Insert** new data with model instance
 ```php
 $data        = DB::Table('users');
 $data->user  = 'first';
@@ -86,15 +90,15 @@ $data->email = 'third';
 $data->save();
 ```
 
-- **Update** data with **array**
+- **Update** data with an **array**
 ```php
 $updateData = [
     'user'  => 'Jane.Doe',
     'name'  => 'John Smith',
     'email' => 'john.smith@example.com'];
 DB::Table('users')
-    ->update(1, $updateData); // 1 is id and where is with array
-//AND
+    ->update(1, $updateData); // 1 is the ID and update({where}, {UpdateArray})
+// Alternatively, update with multiple conditions:
 DB::Table('users')
     ->update(['name' => 1, 'user' => 3], $updateData); // update({where}, {UpdateArray})
 //AND
@@ -104,20 +108,20 @@ DB::Table('users')
     ->update($updateData);
 ```
 
-- **Update** data with model instance **eloquent**
+- **Update**: Updating data with a model instance
 ```php
 $data        = DB::Table('users');
 $data->user  = 'first';
 $data->name  = 'second';
 $data->email = 'third';
-$data->save(1); // 1 is id and where is with array $data->save('name' => 'Jane Doe'); 
+$data->save(1);  // 1 is the ID for the record to update $data->save('name' => 'Jane Doe'); 
 ```
 
 - **Delete** data
 ```php
 DB::Table('users')
-    ->delete(1); // 1 is id
-//AND
+    ->delete(1); // 1 is the ID of the record to delete
+// Alternatively, delete using conditions:
 DB::Table('users')
     ->delete(['name' => 1, 'user' => 6]);
 //AND
@@ -158,3 +162,7 @@ foreach ($customQueryResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
+
+For more details, consult the documentation or check out the full repository.
+
+This README provides an overview of how to use the ORM package for various database operations in PHP, from selecting and updating data to inserting and deleting records, all using a clean, expressive syntax.
