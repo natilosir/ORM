@@ -19,7 +19,7 @@ git clone https://github.com/natilosir/ORM/
 ## Example
 
 - **Select** all data with chaining methods
-```bash
+```php
 $users = DB::Table('users')
     ->where('name', 'second')
     ->where('email', 'third')
@@ -30,7 +30,7 @@ $users = DB::Table('users')
 ```
 
 - **Search** with multiple conditions
-```bash
+```php
 $searchResults = DB::Table('users')
     ->search(['name' => 'Jane', 'email' => 'example.com'])
     ->orderBy('id', 'ASC') // max = DESC, min = ASC
@@ -44,7 +44,7 @@ foreach ($searchResults as $result) {
 ```
 
 - **Count** users with where condition
-```bash
+```php
 $userCount = DB::Table('users')
  // ->where('age', 25)  or search
     ->where('age', '>', 25)
@@ -54,7 +54,7 @@ $userCount = DB::Table('users')
 ```
 
 - Use the **orderBy** clause to sort users by email in ascending order with a limit
-```bash
+```php
 $orderedResults = DB::Table('users')
     ->where('name', 'John')
     ->where('name', 'jane')
@@ -68,7 +68,7 @@ foreach ($orderedResults as $result) {
 ```
 
 - **Insert** new data with **array**
-```bash
+```php
 $newUser = [
     'user'  => 'Jane.Doe',
     'name'  => 'Jane Doe',
@@ -78,7 +78,7 @@ DB::Table('users')
 ```
 
 - **Insert** new data with model instance **eloquent**
-```bash
+```php
 $data        = DB::Table('users');
 $data->user  = 'first';
 $data->name  = 'second';
@@ -87,7 +87,7 @@ $data->save();
 ```
 
 - **Update** data with **array**
-```bash
+```php
 $updateData = [
     'user'  => 'Jane.Doe',
     'name'  => 'John Smith',
@@ -105,7 +105,7 @@ DB::Table('users')
 ```
 
 - **Update** data with model instance **eloquent**
-```bash
+```php
 $data        = DB::Table('users');
 $data->user  = 'first';
 $data->name  = 'second';
@@ -114,7 +114,7 @@ $data->save(1); // 1 is id and where is with array $data->save('name' => 'Jane D
 ```
 
 - **Delete** data
-```bash
+```php
 DB::Table('users')
     ->delete(1); // 1 is id
 //AND
@@ -127,7 +127,7 @@ DB::Table('users')
 ```
 
 - **Using DISTINCT in SQL**
-```bash
+```php
 $users = DB::Table('users')
     ->select('email')
     ->distinct()
@@ -139,7 +139,7 @@ foreach ($users as $user) {
 ```
 
 - **JSON**
-```bash
+```php
 $users = DB::Table('users')
     ->limit(3)
     ->json()
@@ -150,7 +150,7 @@ echo $users;
 ```
 
 - **Run a custom SQL query**
-```bash
+```php
 $customQueryResults = DB::Table('users')
     ->query("SELECT * FROM users WHERE email LIKE '%example.com%' LIMIT 5");
 
