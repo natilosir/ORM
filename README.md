@@ -16,7 +16,7 @@ composer require natilosir/ORM
 ```
 Alternatively, you can clone the repository directly:
 ```bash
-git clone https://github.com/natilosir/ORM/
+git clone https://github.com/natilosir/ORM
 ```
 <br><br>
 
@@ -98,9 +98,11 @@ $updateData = [
     'email' => 'john.smith@example.com'];
 DB::Table('users')
     ->update(1, $updateData); // 1 is the ID and update({where}, {UpdateArray})
+
 // Alternatively, update with multiple conditions:
 DB::Table('users')
     ->update(['name' => 1, 'user' => 3], $updateData); // update({where}, {UpdateArray})
+
 //AND
 DB::Table('users')
 //  ->where(['name' => 1, 'user' => 2])
@@ -121,9 +123,11 @@ $data->save(1);  // 1 is the ID for the record to update $data->save('name' => '
 ```php
 DB::Table('users')
     ->delete(1); // 1 is the ID of the record to delete
+
 // Alternatively, delete using conditions:
 DB::Table('users')
     ->delete(['name' => 1, 'user' => 6]);
+
 //AND
 DB::Table('users')
     ->where(['name' => 1, 'user' => 5]) //AND oder methods in where
