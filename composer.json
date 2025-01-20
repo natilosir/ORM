@@ -15,7 +15,7 @@
     },
     "autoload": {
         "psr-4": {
-            "Natilosir\\ORM\\": "src/"
+            "natilosir\\orm\\": "src/"
         }
     }
 }
