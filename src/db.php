@@ -1,4 +1,5 @@
 <?php
+namespace natilosir\orm;
 
 require 'database.php';
 
