@@ -21,7 +21,11 @@ git clone https://github.com/natilosir/ORM
 <br><br>
 
 ## Example
-
+When using the DB class, make sure to include it with `use` .
+```php
+use natilosir\orm\db; 
+```
+### Select
 - **Select** all data with chaining methods
 ```php
 $users = DB::Table('users')
@@ -32,7 +36,7 @@ $users = DB::Table('users')
     ->get();
     
 ```
-
+### Search
 - **Search** with multiple conditions
 ```php
 $searchResults = DB::Table('users')
@@ -46,7 +50,7 @@ foreach ($searchResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
-
+### Count
 - **Count** users with where condition
 ```php
 $userCount = DB::Table('users')
@@ -56,7 +60,7 @@ $userCount = DB::Table('users')
     ->where('age', '=', 25, 'and')
     ->count();
 ```
-
+### orderBy
 - Use the **orderBy** clause to sort users by email in ascending order with a limit
 ```php
 $orderedResults = DB::Table('users')
@@ -70,7 +74,7 @@ foreach ($orderedResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
-
+### Insert array
 - **Insert** : Inserting new data with an **array**
 ```php
 $newUser = [
@@ -80,7 +84,7 @@ $newUser = [
 DB::Table('users')
     ->insert($newUser);
 ```
-
+### Insert model
 - **Insert** new data with model instance
 ```php
 $data        = DB::Table('users');
@@ -89,7 +93,7 @@ $data->name  = 'second';
 $data->email = 'third';
 $data->save();
 ```
-
+### Update array
 - **Update** data with an **array**
 ```php
 $updateData = [
@@ -109,7 +113,7 @@ DB::Table('users')
     ->where('name', 1) //AND oder methods in where
     ->update($updateData);
 ```
-
+### Update model
 - **Update**: Updating data with a model instance
 ```php
 $data        = DB::Table('users');
@@ -118,7 +122,7 @@ $data->name  = 'second';
 $data->email = 'third';
 $data->save(1);  // 1 is the ID for the record to update $data->save('name' => 'Jane Doe'); 
 ```
-
+### Delete
 - **Delete** data
 ```php
 DB::Table('users')
@@ -133,7 +137,7 @@ DB::Table('users')
     ->where(['name' => 1, 'user' => 5]) //AND oder methods in where
     ->delete();
 ```
-
+### DISTINCT
 - **Using DISTINCT in SQL**
 ```php
 $users = DB::Table('users')
@@ -145,7 +149,7 @@ foreach ($users as $user) {
     echo $user['email'].'<br>';
 }
 ```
-
+### JSON
 - **JSON**
 ```php
 $users = DB::Table('users')
@@ -156,7 +160,7 @@ $users = DB::Table('users')
 echo $users;
 // [{"id":116,"name":"John Smith", ...
 ```
-
+### query
 - **Run a custom SQL query**
 ```php
 $customQueryResults = DB::Table('users')
