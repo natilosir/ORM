@@ -69,13 +69,13 @@ $updateData = [
     'email' => 'john.smith@example.com'];
 DB::Table('users')
     ->update(1, $updateData); // 1 is id and where is with array
-//AND
+// AND
 DB::Table('users')
     ->update(['name' => 1, 'user' => 3], $updateData); // update({where}, {UpdateArray})
-//AND
+// AND
 DB::Table('users')
 //  ->where(['name' => 1, 'user' => 2])
-    ->where('name', 1) //AND oder methods in where
+    ->where('name', 1) // AND oder methods in where
     ->update($updateData);
 
 echo 'Update data with model instance eloquent<br>';
@@ -88,10 +88,10 @@ $data->save(); // 1 is id and where is with array $data->save('name' => 'Jane.Do
 echo 'Delete data<br>';
 DB::Table('users')
     ->delete(115); // 1 is id
-//AND
+// AND
 DB::Table('users')
     ->delete(['name' => 1, 'user' => 6]);
-//AND
+// AND
 DB::Table('users')
     ->where(['name' => 1, 'user' => 5])
     ->delete();

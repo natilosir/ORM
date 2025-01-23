@@ -1,8 +1,10 @@
 <?php
+
 namespace natilosir\orm;
-use PDO; 
-use Exception; 
-use InvalidArgumentException; 
+
+use Exception;
+use InvalidArgumentException;
+use PDO;
 
 require 'database.php';
 
