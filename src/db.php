@@ -170,7 +170,11 @@ class db
         if (count($result) === 1) {
             return $result[0];
         }
-
+        
+        if (count($result) === 0) {
+            return false;
+        }
+        
         return $result;
     }
 
