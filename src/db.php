@@ -2,9 +2,9 @@
 
 namespace natilosir\orm;
 
+use PDO;
 use Exception;
 use InvalidArgumentException;
-use PDO;
 
 require 'database.php';
 
@@ -118,6 +118,11 @@ class db
 
     public static function orderBy($column, $direction)
     {
+        if (empty($direction)) {
+            $direction = $column;
+            $column    = 'id';
+        }
+
         $direction = strtoupper($direction);
 
         if ($direction === 'MIN') {
