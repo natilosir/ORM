@@ -32,6 +32,7 @@ $users = DB::Table('users')
     ->where('name', 'second')
     ->where('email', 'third')
     ->orderBy('id', 'max') // max = DESC, min = ASC
+//  ->orderBy('max') // order default id
     ->limit(3)
     ->get();
     
