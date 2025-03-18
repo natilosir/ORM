@@ -324,15 +324,16 @@ class db
         return $stmt->execute();
     }
 
-    public function query($sql)
+    public static function query($sql)
     {
+        self::table('');
         $stmt = self::$connection->prepare($sql);
         $stmt->execute();
 
         return $stmt->fetchAll(PDO::FETCH_OBJ);
     }
 
-    private static function buildSQL()
+    public static function SQL()
     {
         $selectPart = self::$distinct ? 'SELECT DISTINCT '.self::$columns : 'SELECT '.self::$columns;
 
