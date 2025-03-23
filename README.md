@@ -75,6 +75,16 @@ foreach ($orderedResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
+### value
+- Use the **value** function to add multiple columns dynamically with automatic numbering for duplicates.
+```php
+$Price = DB::Table('extra')
+    ->value('price','date')->get();
+```
+output
+```sql
+SELECT price, id FROM extra //...
+```
 ### Insert array
 - **Insert** : Inserting new data with an **array**
 ```php
@@ -160,6 +170,16 @@ $users = DB::Table('users')
 
 echo $users;
 // [{"id":116,"name":"John Smith", ...
+```
+### sql
+- **show sql**
+```php
+$price = DB::Table('extra')->value('price','date')
+    ->sql();
+```
+output
+```sql
+SELECT price, id FROM extra WHERE id > :id
 ```
 ### query
 - **Run a custom SQL query**
