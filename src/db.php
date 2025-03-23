@@ -54,6 +54,19 @@ class db
         return $this;
     }
 
+    public function value() {
+        self::$columns = [];
+        $args = func_get_args();
+
+        foreach ($args as $index => $value) {
+            self::$columns[] = $value; 
+        }
+
+        self::$columns = implode(', ', self::$columns);
+
+        return $this;
+    }
+
     public static function select($columns)
     {
         if (is_array($columns)) {
