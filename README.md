@@ -116,7 +116,7 @@ DB::Table('users')
 
 // Alternatively, update with multiple conditions:
 DB::Table('users')
-    ->update(['name' => 1, 'user' => 3], $updateData); // update({where}, {UpdateArray})
+    ->update(['name' => 1, 'user' => 3], $updateData); // update({whereArray}, {UpdateArray})
 
 //AND
 DB::Table('users')
