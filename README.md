@@ -184,8 +184,7 @@ SELECT price, id FROM extra WHERE id > :id
 ### query
 - **Run a custom SQL query**
 ```php
-$customQueryResults = DB::Table('users')
-    ->query("SELECT * FROM users WHERE email LIKE '%example.com%' LIMIT 5");
+$customQueryResults = DB::query("SELECT * FROM users WHERE email LIKE '%example.com%' LIMIT 5");
 
 foreach ($customQueryResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
