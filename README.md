@@ -174,7 +174,7 @@ echo $users;
 ### sql
 - **show sql**
 ```php
-$price = DB::Table('extra')->WHERE('id', '1')->value('price','date')
+$price = DB::Table('extra')->WHERE('id', '>', '1')->value('price','date')
     ->sql();
 ```
 output
