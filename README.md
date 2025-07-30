@@ -224,6 +224,3 @@ User::createOrFirst([ 'user_id' => $request->fromID, ], [
 // OR
 $Result = User::where('user_id', $fromID)->first();
 ```
-For more details, consult the documentation or check out the full repository.
-
-This README provides an overview of how to use the ORM package for various database operations in PHP, from selecting and updating data to inserting and deleting records, all using a clean, expressive syntax.
