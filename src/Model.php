@@ -21,7 +21,7 @@ namespace natilosir\orm;
  * @method static mixed updateOrInsert( array $conditions, array $data )
  * @method static mixed SQL()
  */
-abstract class Models {
+abstract class Model {
     protected static string $table;
 
     public static function __callStatic( string $method, array $arguments ) {

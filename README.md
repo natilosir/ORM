@@ -4,7 +4,7 @@ This is a simple and elegant implementation of an ORM (Object-Relational Mapping
 
 ## Requirements
 
-- PHP >= 5.4
+- PHP >= 8.0
 - Composer
 
 ## Installation
@@ -133,6 +133,22 @@ $data->name  = 'second';
 $data->email = 'third';
 $data->save(1);  // 1 is the ID for the record to update $data->save('name' => 'Jane Doe'); 
 ```
+### createOrFirst
+```php
+DB::Table('users')->createOrFirst([ 'user_id' => $request->fromID, ], 
+[
+'first_name' => $request->firstName,
+'last_name'  => $request->lastName,
+]);
+```
+### createOrUpdate
+```php
+DB::Table('users')->createOrUpdate([ 'user_id' => $request->fromID, ],
+[
+'first_name' => $request->firstName,
+'last_name'  => $request->lastName,
+]);
+```
 ### Delete
 - **Delete** data
 ```php
@@ -190,7 +206,24 @@ foreach ($customQueryResults as $result) {
     echo $result['id'].' - '.$result['name'].' - '.$result['email'].'<br>';
 }
 ```
+# Model
+- **Configuration**
+The model is configured to use the `users` table by default. You can change this by modifying the `$table` property:
 
+```php
+class User extends Model {
+    protected static string $table = 'users';
+}
+```
+- **Use**
+```php
+User::createOrFirst([ 'user_id' => $request->fromID, ], [
+'first_name' => $request->firstName,
+'last_name'  => $request->lastName,
+]);
+// OR
+$Result = User::where('user_id', $fromID)->first();
+```
 For more details, consult the documentation or check out the full repository.
 
 This README provides an overview of how to use the ORM package for various database operations in PHP, from selecting and updating data to inserting and deleting records, all using a clean, expressive syntax.
