@@ -6,9 +6,7 @@ use Exception;
 use InvalidArgumentException;
 use PDO;
 
-require 'database.php';
-
-class db {
+class DB {
     private static $connection;
 
     private static $table;
@@ -369,7 +367,7 @@ class db {
         return $final;
     }
 
-    public static function createOrUpdate( $conditions, $data ) {
+    public static function createOrUpdate( $conditions, $data = [] ) {
         $record = self::Table(self::$table)->where($conditions)->first();
 
         $instance = new self();

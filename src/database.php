@@ -5,7 +5,7 @@ namespace natilosir\orm;
 use PDO;
 use PDOException;
 
-class database
+class Database
 {
     private $host; // Database host
 
