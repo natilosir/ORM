@@ -196,9 +196,6 @@ class DB {
         $stmt->execute();
 
         $result = $stmt->fetchAll(PDO::FETCH_OBJ);
-        if ( count($result) === 1 ) {
-            return $result[0];
-        }
 
         if ( count($result) === 0 ) {
             return false;
