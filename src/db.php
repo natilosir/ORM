@@ -300,6 +300,10 @@ class DB {
         }
     }
 
+    public function create( $data ) {
+        return self::Table(self::$table)->insert( $data );
+    }
+
     public function update( $params, $data = null ) {
         if ( $data === null && is_array($params) ) {
             $data   = $params;
