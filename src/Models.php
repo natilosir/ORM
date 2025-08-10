@@ -14,6 +14,7 @@ namespace natilosir\orm;
  * @method static mixed first()
  * @method static int count()
  * @method static bool insert( array $data )
+ * @method static bool create( array $data )
  * @method static bool update( array $params, array $data = null )
  * @method static bool delete( mixed $params = null )
  * @method static \natilosir\orm\DB createOrFirst( array $conditions, array $data = [] )

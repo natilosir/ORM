@@ -77,39 +77,83 @@ class DB {
         return new self();
     }
 
-    public static function where( $column, $operator = null, $value = null, $type = 'AND' ) {
-        if ( is_array($column) ) {
-            foreach ( $column as $col => $val ) {
-                if ( empty(self::$query) ) {
-                    self::$query = " WHERE $col = :$col";
+    public static function where($column, $operator = null, $value = null, $type = 'AND')
+    {
+        // Closure
+        if ($column instanceof \Closure) {
+            $nested = new self();
+            $column($nested);
+            if (!empty($nested::$query)) {
+                if (empty(self::$query)) {
+                    self::$query = " WHERE (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
+                } else {
+                    self::$query .= " $type (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
                 }
-                else {
+                self::$params = array_merge(self::$params, $nested::$params);
+            }
+            return new self();
+        }
+
+        // [ ['col', '=', 'val'], ['col2', 'val2'] ]
+        if (is_array($column) && isset($column[0]) && is_array($column[0])) {
+            foreach ($column as $condition) {
+                $col = $condition[0];
+                if (count($condition) === 2) {
+                    $op = '=';
+                    $val = $condition[1];
+                } else {
+                    $op = $condition[1];
+                    $val = $condition[2];
+                }
+                if (empty(self::$query)) {
+                    self::$query = " WHERE $col $op :$col";
+                } else {
+                    self::$query .= " $type $col $op :$col";
+                }
+                self::$params[":$col"] = $val;
+            }
+            return new self();
+        }
+
+        // ['col' => 'val']
+        if (is_array($column)) {
+            foreach ($column as $col => $val) {
+                if (empty(self::$query)) {
+                    self::$query = " WHERE $col = :$col";
+                } else {
                     self::$query .= " $type $col = :$col";
                 }
                 self::$params[":$col"] = $val;
             }
-
             return new self();
         }
 
-        if ( func_num_args() === 2 ) {
-            $value    = $operator;
+        // where('col', 'val') OR where('col', '>', 'val')
+        if (func_num_args() === 2) {
+            $value = $operator;
             $operator = '=';
         }
-
         $condition = "$column $operator :$column";
-
-        if ( empty(self::$query) ) {
+        if (empty(self::$query)) {
             self::$query = " WHERE $condition";
-        }
-        else {
+        } else {
             self::$query .= " $type $condition";
         }
-
         self::$params[":$column"] = $value;
 
         return new self();
     }
+
+    public static function andWhere($column, $operator = null, $value = null)
+    {
+        return self::where($column, $operator, $value, 'AND');
+    }
+
+    public static function orWhere($column, $operator = null, $value = null)
+    {
+        return self::where($column, $operator, $value, 'OR');
+    }
+
 
     public static function whereNotNull( $column, $type = 'AND' ) {
         $condition = "$column IS NOT NULL";
