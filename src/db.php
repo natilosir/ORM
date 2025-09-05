@@ -30,24 +30,6 @@ class DB {
         self::$connection = $database->getConnection();
     }
 
-    public static function Table( $table ) {
-        self::$table    = $table;
-        self::$query    = '';
-        self::$ORDER    = '';
-        self::$limit    = '';
-        self::$distinct = false;
-        self::$columns  = '*';
-        self::$params   = [];
-
-        return new self();
-    }
-
-    public function distinct() {
-        self::$distinct = true;
-
-        return $this;
-    }
-
     public static function select( $columns ) {
         if ( is_array($columns) ) {
             self::$columns = implode(', ', $columns);
@@ -77,16 +59,20 @@ class DB {
         return new self();
     }
 
-    public static function where($column, $operator = null, $value = null, $type = 'AND')
-    {
+    public static function andWhere( $column, $operator = null, $value = null ) {
+        return self::where($column, $operator, $value, 'AND');
+    }
+
+    public static function where( $column, $operator = null, $value = null, $type = 'AND' ) {
         // Closure
-        if ($column instanceof \Closure) {
+        if ( $column instanceof \Closure ) {
             $nested = new self();
             $column($nested);
-            if (!empty($nested::$query)) {
-                if (empty(self::$query)) {
+            if ( !empty($nested::$query) ) {
+                if ( empty(self::$query) ) {
                     self::$query = " WHERE (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
-                } else {
+                }
+                else {
                     self::$query .= " $type (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
                 }
                 self::$params = array_merge(self::$params, $nested::$params);
@@ -95,19 +81,21 @@ class DB {
         }
 
         // [ ['col', '=', 'val'], ['col2', 'val2'] ]
-        if (is_array($column) && isset($column[0]) && is_array($column[0])) {
-            foreach ($column as $condition) {
+        if ( is_array($column) && isset($column[0]) && is_array($column[0]) ) {
+            foreach ( $column as $condition ) {
                 $col = $condition[0];
-                if (count($condition) === 2) {
-                    $op = '=';
+                if ( count($condition) === 2 ) {
+                    $op  = '=';
                     $val = $condition[1];
-                } else {
-                    $op = $condition[1];
+                }
+                else {
+                    $op  = $condition[1];
                     $val = $condition[2];
                 }
-                if (empty(self::$query)) {
+                if ( empty(self::$query) ) {
                     self::$query = " WHERE $col $op :$col";
-                } else {
+                }
+                else {
                     self::$query .= " $type $col $op :$col";
                 }
                 self::$params[":$col"] = $val;
@@ -116,11 +104,12 @@ class DB {
         }
 
         // ['col' => 'val']
-        if (is_array($column)) {
-            foreach ($column as $col => $val) {
-                if (empty(self::$query)) {
+        if ( is_array($column) ) {
+            foreach ( $column as $col => $val ) {
+                if ( empty(self::$query) ) {
                     self::$query = " WHERE $col = :$col";
-                } else {
+                }
+                else {
                     self::$query .= " $type $col = :$col";
                 }
                 self::$params[":$col"] = $val;
@@ -129,14 +118,15 @@ class DB {
         }
 
         // where('col', 'val') OR where('col', '>', 'val')
-        if (func_num_args() === 2) {
-            $value = $operator;
+        if ( func_num_args() === 2 ) {
+            $value    = $operator;
             $operator = '=';
         }
         $condition = "$column $operator :$column";
-        if (empty(self::$query)) {
+        if ( empty(self::$query) ) {
             self::$query = " WHERE $condition";
-        } else {
+        }
+        else {
             self::$query .= " $type $condition";
         }
         self::$params[":$column"] = $value;
@@ -144,16 +134,30 @@ class DB {
         return new self();
     }
 
-    public static function andWhere($column, $operator = null, $value = null)
-    {
-        return self::where($column, $operator, $value, 'AND');
+    public static function orWhereIn( $column, $values ) {
+        return self::whereIn($column, $values, 'OR');
     }
 
-    public static function orWhere($column, $operator = null, $value = null)
-    {
+    public static function whereIn( $column, $values, $type = 'AND' ) {
+        if ( empty($values) ) {
+            return new self();
+        }
+
+        return self::where(function ( $query ) use ( $column, $values ) {
+            foreach ( $values as $index => $value ) {
+                if ( $index === 0 ) {
+                    $query->where($column, '=', $value);
+                }
+                else {
+                    $query->orWhere($column, '=', $value);
+                }
+            }
+        }, null, null, $type);
+    }
+
+    public static function orWhere( $column, $operator = null, $value = null ) {
         return self::where($column, $operator, $value, 'OR');
     }
-
 
     public static function whereNotNull( $column, $type = 'AND' ) {
         $condition = "$column IS NOT NULL";
@@ -211,20 +215,34 @@ class DB {
         return new self();
     }
 
+    public static function createOrFirst( $conditions, $data = [] ) {
+        $record = self::Table(self::$table)->where($conditions)->first();
+
+        if ( $record ) {
+            $record->is_updated = false;
+            return $record;
+        }
+
+        $instance = new self();
+        $allData  = array_merge($conditions, $data);
+
+        foreach ( $allData as $key => $value ) {
+            $instance->$key = $value;
+        }
+
+        $instance->save();
+        $id = $instance->data['id'];
+
+        $final             = self::Table(self::$table)->where('id', $id)->first();
+        $final->is_updated = true;
+
+        return $final;
+    }
+
     public static function first() {
         self::$limit = ' LIMIT 1';
 
         return self::get();
-    }
-
-    public function exists() {
-        $result = self::first();
-        if ( $result ) {
-            return true;
-        }
-        {
-            return false;
-        }
     }
 
     public static function get() {
@@ -248,8 +266,16 @@ class DB {
         return $result;
     }
 
-    public function __set( $name, $value ) {
-        $this->data[$name] = $value;
+    public static function Table( $table ) {
+        self::$table    = $table;
+        self::$query    = '';
+        self::$ORDER    = '';
+        self::$limit    = '';
+        self::$distinct = false;
+        self::$columns  = '*';
+        self::$params   = [];
+
+        return new self();
     }
 
     public function save( $params = null ) {
@@ -311,6 +337,76 @@ class DB {
         }
     }
 
+    public static function updateOrInsert( $conditions, $data ) {
+        return self::createOrUpdate($conditions, $data);
+    }
+
+    public static function createOrUpdate( $conditions, $data = [] ) {
+        $record = self::Table(self::$table)->where($conditions)->first();
+
+        $instance = new self();
+        $allData  = array_merge($conditions, $data);
+
+        foreach ( $allData as $key => $value ) {
+            $instance->$key = $value;
+        }
+
+        if ( $record ) {
+            $instance->save($conditions);
+
+            $conditionKey = array_key_first($conditions);
+            $id           = $conditions[$conditionKey];
+
+            $final             = self::Table(self::$table)->where($conditionKey, $id)->first();
+            $final->is_updated = true;
+
+            return $final;
+        }
+        else {
+            $instance->save();
+
+            $id                = $instance->data['id'];
+            $final             = self::Table(self::$table)->where('id', $id)->first();
+            $final->is_updated = false;
+
+            return $final;
+        }
+    }
+
+    public static function query( $sql ) {
+        self::table('');
+        $stmt = self::$connection->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_OBJ);
+    }
+
+    public static function SQL() {
+        $selectPart = self::$distinct ? 'SELECT DISTINCT ' . self::$columns : 'SELECT ' . self::$columns;
+
+        return $selectPart . ' FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
+    }
+
+    public function distinct() {
+        self::$distinct = true;
+
+        return $this;
+    }
+
+    public function exists() {
+        $result = self::first();
+        if ( $result ) {
+            return true;
+        }
+        {
+            return false;
+        }
+    }
+
+    public function __set( $name, $value ) {
+        $this->data[$name] = $value;
+    }
+
     public function count() {
         $sql = 'SELECT COUNT(*) FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
 
@@ -323,6 +419,10 @@ class DB {
         $stmt->execute();
 
         return $stmt->fetchColumn();
+    }
+
+    public function create( $data ) {
+        return self::Table(self::$table)->insert($data);
     }
 
     public function insert( $data ) {
@@ -342,10 +442,6 @@ class DB {
 
             return $stmt->execute();
         }
-    }
-
-    public function create( $data ) {
-        return self::Table(self::$table)->insert( $data );
     }
 
     public function update( $params, $data = null ) {
@@ -388,66 +484,6 @@ class DB {
         return $stmt->execute();
     }
 
-    public static function createOrFirst( $conditions, $data = [] ) {
-        $record = self::Table(self::$table)->where($conditions)->first();
-
-        if ( $record ) {
-            $record->is_updated = false;
-            return $record;
-        }
-
-        $instance = new self();
-        $allData  = array_merge($conditions, $data);
-
-        foreach ( $allData as $key => $value ) {
-            $instance->$key = $value;
-        }
-
-        $instance->save();
-        $id = $instance->data['id'];
-
-        $final             = self::Table(self::$table)->where('id', $id)->first();
-        $final->is_updated = true;
-
-        return $final;
-    }
-
-    public static function createOrUpdate( $conditions, $data = [] ) {
-        $record = self::Table(self::$table)->where($conditions)->first();
-
-        $instance = new self();
-        $allData  = array_merge($conditions, $data);
-
-        foreach ( $allData as $key => $value ) {
-            $instance->$key = $value;
-        }
-
-        if ( $record ) {
-            $instance->save($conditions);
-
-            $conditionKey = array_key_first($conditions);
-            $id           = $conditions[$conditionKey];
-
-            $final             = self::Table(self::$table)->where($conditionKey, $id)->first();
-            $final->is_updated = true;
-
-            return $final;
-        }
-        else {
-            $instance->save();
-
-            $id                = $instance->data['id'];
-            $final             = self::Table(self::$table)->where('id', $id)->first();
-            $final->is_updated = false;
-
-            return $final;
-        }
-    }
-
-    public static function updateOrInsert( $conditions, $data ) {
-        return self::createOrUpdate($conditions, $data);
-    }
-
     public function delete( $params = null ) {
         if ( empty(self::$query) ) {
             if ( is_int($params) ) {
@@ -472,19 +508,5 @@ class DB {
         }
 
         return $stmt->execute();
-    }
-
-    public static function query( $sql ) {
-        self::table('');
-        $stmt = self::$connection->prepare($sql);
-        $stmt->execute();
-
-        return $stmt->fetchAll(PDO::FETCH_OBJ);
-    }
-
-    public static function SQL() {
-        $selectPart = self::$distinct ? 'SELECT DISTINCT ' . self::$columns : 'SELECT ' . self::$columns;
-
-        return $selectPart . ' FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
     }
 }
