@@ -319,18 +319,23 @@ class DB {
                 return self::Table(self::$table)->where('id', $lastId)->first();
             }
             else {
-                $set = '';
+                $set          = '';
+                $updateParams = [];
+
                 foreach ( $this->data as $col => $value ) {
-                    $set .= "$col = :$col, ";
+                    $set                          .= "$col = :update_$col, ";
+                    $updateParams[":update_$col"] = $value;
                 }
                 $set = rtrim($set, ', ');
-                $sql = 'UPDATE ' . self::$table . " SET $set WHERE $column = :id";
+
+                $sql                       = 'UPDATE ' . self::$table . " SET $set WHERE $column = :where_id";
+                $updateParams[':where_id'] = $id;
 
                 $stmt = self::$connection->prepare($sql);
-                foreach ( $this->data as $col => $value ) {
-                    $stmt->bindValue(":$col", $value, is_null($value) ? PDO::PARAM_NULL : PDO::PARAM_STR);
+
+                foreach ( $updateParams as $param => $value ) {
+                    $stmt->bindValue($param, $value, is_null($value) ? PDO::PARAM_NULL : PDO::PARAM_STR);
                 }
-                $stmt->bindValue(':id', $id);
 
                 if ( !$stmt->execute() ) {
                     $errorInfo = $stmt->errorInfo();
@@ -362,7 +367,8 @@ class DB {
         if ( $record ) {
             $instance->save($conditions);
 
-            $conditionKey = array_key_first($conditions);
+            reset($conditions);
+            $conditionKey = key($conditions);
             $id           = $conditions[$conditionKey];
 
             $final             = self::Table(self::$table)->where($conditionKey, $id)->first();
