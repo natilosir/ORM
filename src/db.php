@@ -193,6 +193,33 @@ class DB {
         return new self();
     }
 
+    public static function orWhereBetween( $column, $values ) {
+        return self::whereBetween($column, $values, 'OR');
+    }
+
+    public static function whereBetween( $column, $values, $type = 'AND' ) {
+        if ( !is_array($values) || count($values) !== 2 ) {
+            throw new InvalidArgumentException("whereBetween requires an array with exactly two values");
+        }
+
+        $param1 = ":{$column}_start";
+        $param2 = ":{$column}_end";
+
+        $condition = "{$column} BETWEEN {$param1} AND {$param2}";
+
+        if ( empty(self::$query) ) {
+            self::$query = " WHERE {$condition}";
+        }
+        else {
+            self::$query .= " {$type} {$condition}";
+        }
+
+        self::$params[$param1] = $values[0];
+        self::$params[$param2] = $values[1];
+
+        return new self();
+    }
+
     public static function orderBy( $column, $direction ) {
         if ( empty($direction) ) {
             $direction = $column;
