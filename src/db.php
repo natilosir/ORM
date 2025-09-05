@@ -143,16 +143,24 @@ class DB {
             return new self();
         }
 
-        return self::where(function ( $query ) use ( $column, $values ) {
-            foreach ( $values as $index => $value ) {
-                if ( $index === 0 ) {
-                    $query->where($column, '=', $value);
-                }
-                else {
-                    $query->orWhere($column, '=', $value);
-                }
-            }
-        }, null, null, $type);
+        $placeholders = [];
+        foreach ( $values as $index => $value ) {
+            $param                = ":{$column}_{$index}";
+            $placeholders[]       = $param;
+            self::$params[$param] = $value;
+        }
+
+        $placeholdersStr = implode(', ', $placeholders);
+        $condition       = "{$column} IN ({$placeholdersStr})";
+
+        if ( empty(self::$query) ) {
+            self::$query = " WHERE {$condition}";
+        }
+        else {
+            self::$query .= " {$type} {$condition}";
+        }
+
+        return new self();
     }
 
     public static function orWhere( $column, $operator = null, $value = null ) {
