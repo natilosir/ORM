@@ -276,8 +276,13 @@ class DB {
 
     public static function first() {
         self::$limit = ' LIMIT 1';
+        $results = self::get();
 
-        return self::get();
+        if (is_array($results) && count($results) > 0) {
+            return $results[0];
+        }
+
+        return false;
     }
 
     public static function get() {
