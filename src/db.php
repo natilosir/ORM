@@ -377,6 +377,17 @@ class DB {
         }
     }
 
+    public static function all() {
+        self::$columns  = '*';
+        self::$query    = '';
+        self::$ORDER    = '';
+        self::$limit    = '';
+        self::$distinct = false;
+        self::$params   = [];
+
+        return self::get();
+    }
+
     public static function updateOrInsert( $conditions, $data ) {
         return self::createOrUpdate($conditions, $data);
     }
