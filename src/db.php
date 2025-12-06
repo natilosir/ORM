@@ -3,567 +3,852 @@
 namespace natilosir\orm;
 
 use Exception;
-use InvalidArgumentException;
+use natilosir\bot\Log;
 use PDO;
 
 class DB {
-    private static $connection;
+    public ?object  $modelInstance = null;
+    private string  $table;
+    private ?string $modelClass    = null;
+    private array   $select        = [ '*' ];
+    private bool    $isDistinct    = false;
+    private array   $orders        = [];
+    private ?int    $limit         = null;
 
-    private static $table;
+    private array $wheres   = [];
+    private array $bindings = [];
 
-    private static $query;
+    private array $with = [];
 
-    private static $ORDER;
-
-    private static $limit;
-
-    private static $distinct = false;
-
-    private static $columns = '*';
-
-    private static $params = [];
-
-    private $data = [];
-
-    public function __construct() {
-        $database         = new Database();
-        self::$connection = $database->getConnection();
+    public function __construct( string $table ) {
+        $this->table = $table;
     }
 
-    public static function select( $columns ) {
-        if ( is_array($columns) ) {
-            self::$columns = implode(', ', $columns);
-        }
-        else {
-            self::$columns = $columns;
-        }
-
-        return new self();
+    public function loadModel( object $model ): self {
+        $this->modelInstance = $model;
+        return $this;
     }
 
-    public static function search( $conditions ) {
-        if ( empty($conditions) ) {
-            return new self();
+    public function with( ...$relations ): self {
+        foreach ( $relations as $r ) {
+            $this->with[] = $r;
+        }
+        return $this;
+    }
+
+    public function dd() {
+        $this->lg();
+        die();
+    }
+
+    public function lg() {
+        $payload = [
+            'type'     => 'query',
+            'sql'      => $this->SQL(),
+            'bindings' => $this->bindings,
+            'wheres'   => $this->wheres,
+            'table'    => $this->table,
+            'model'    => $this->modelClass,
+        ];
+        Log::debug($payload);
+    }
+
+    public function SQL(): string {
+        return $this->buildSQL();
+    }
+
+    private function buildSQL(): string {
+        $sql = "SELECT ";
+
+        if ( $this->isDistinct ) $sql .= "DISTINCT ";
+
+        $sql .= implode(', ', $this->select);
+        $sql .= " FROM {$this->table}";
+
+        if ( !empty($this->wheres) ) {
+            $sql .= " WHERE " . $this->compileWhereTree($this->wheres);
         }
 
-        foreach ( $conditions as $column => $value ) {
-            if ( empty(self::$query) ) {
-                self::$query = " WHERE $column LIKE :$column";
+        foreach ( $this->orders as [$col, $dir] ) {
+            $sql .= " ORDER BY $col $dir,";
+        }
+        if ( !empty($this->orders) ) {
+            $sql = rtrim($sql, ',');
+        }
+
+        if ( $this->limit ) $sql .= " LIMIT {$this->limit}";
+
+        return $sql;
+    }
+
+    private function compileWhereTree( array $nodes ): string {
+        $sql = '';
+
+        foreach ( $nodes as $i => $w ) {
+            $bool = ( $i === 0 ? '' : strtoupper($w['boolean']) . ' ' );
+
+            switch ( $w['type'] ) {
+                case 'basic':
+                    $sql .= "$bool{$w['column']} {$w['operator']} :{$w['value']} ";
+                    break;
+
+                case 'in':
+                    $in  = implode(', ', array_map(fn( $k ) => ":$k", $w['values']));
+                    $sql .= "$bool{$w['column']} IN ($in) ";
+                    break;
+
+                case 'not_in':
+                    $in  = implode(', ', array_map(fn( $k ) => ":$k", $w['values']));
+                    $sql .= "$bool{$w['column']} NOT IN ($in) ";
+                    break;
+
+                case 'between':
+                    $sql .= "$bool{$w['column']} BETWEEN :{$w['values'][0]} AND :{$w['values'][1]} ";
+                    break;
+
+                case 'not_between':
+                    $sql .= "$bool{$w['column']} NOT BETWEEN :{$w['values'][0]} AND :{$w['values'][1]} ";
+                    break;
+
+                case 'raw':
+                    $sql .= "$bool{$w['sql']} ";
+                    break;
+                case 'not_null':
+                    $sql .= "$bool{$w['column']} IS NOT NULL";
+                    break;
+
+                case 'group':
+                    $inside = $this->compileWhereTree($w['wheres']);
+                    $sql    .= "$bool($inside) ";
+                    break;
             }
-            else {
-                self::$query .= " AND $column LIKE :$column";
-            }
-            self::$params[":$column"] = "%$value%";
         }
 
-        return new self();
+        return trim($sql);
     }
 
-    public static function andWhere( $column, $operator = null, $value = null ) {
-        return self::where($column, $operator, $value, 'AND');
+    public function log() {
+        $this->lg();
     }
 
-    public static function where( $column, $operator = null, $value = null, $type = 'AND' ) {
-        // Closure
-        if ( $column instanceof \Closure ) {
-            $nested = new self();
-            $column($nested);
-            if ( !empty($nested::$query) ) {
-                if ( empty(self::$query) ) {
-                    self::$query = " WHERE (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
-                }
-                else {
-                    self::$query .= " $type (" . preg_replace('/^ WHERE /', '', $nested::$query) . ")";
-                }
-                self::$params = array_merge(self::$params, $nested::$params);
-            }
-            return new self();
-        }
-
-        // [ ['col', '=', 'val'], ['col2', 'val2'] ]
-        if ( is_array($column) && isset($column[0]) && is_array($column[0]) ) {
-            foreach ( $column as $condition ) {
-                $col = $condition[0];
-                if ( count($condition) === 2 ) {
-                    $op  = '=';
-                    $val = $condition[1];
-                }
-                else {
-                    $op  = $condition[1];
-                    $val = $condition[2];
-                }
-                if ( empty(self::$query) ) {
-                    self::$query = " WHERE $col $op :$col";
-                }
-                else {
-                    self::$query .= " $type $col $op :$col";
-                }
-                self::$params[":$col"] = $val;
-            }
-            return new self();
-        }
-
-        // ['col' => 'val']
-        if ( is_array($column) ) {
-            foreach ( $column as $col => $val ) {
-                if ( empty(self::$query) ) {
-                    self::$query = " WHERE $col = :$col";
-                }
-                else {
-                    self::$query .= " $type $col = :$col";
-                }
-                self::$params[":$col"] = $val;
-            }
-            return new self();
-        }
-
-        // where('col', 'val') OR where('col', '>', 'val')
-        if ( func_num_args() === 2 ) {
-            $value    = $operator;
-            $operator = '=';
-        }
-        $condition = "$column $operator :$column";
-        if ( empty(self::$query) ) {
-            self::$query = " WHERE $condition";
-        }
-        else {
-            self::$query .= " $type $condition";
-        }
-        self::$params[":$column"] = $value;
-
-        return new self();
+    public function select( $columns ): self {
+        if ( is_string($columns) ) $columns = explode(',', $columns);
+        $this->select = array_map('trim', $columns);
+        return $this;
     }
 
-    public static function orWhereIn( $column, $values ) {
-        return self::whereIn($column, $values, 'OR');
+    public function distinct(): self {
+        $this->isDistinct = true;
+        return $this;
     }
 
-    public static function whereIn( $column, $values, $type = 'AND' ) {
-        if ( empty($values) ) {
-            return new self();
+    public function orderBy( string $col, string $dir = 'ASC' ): self {
+        $this->orders[] = [ $col, strtoupper($dir) ];
+        return $this;
+    }
+
+    public function orWhereIn( string $column, array $values ): self {
+        return $this->whereIn($column, $values, 'or');
+    }
+
+    public function whereIn( string $column, array $values, string $boolean = 'and' ): self {
+        if ( count($values) === 0 ) {
+            return $this->addWhere([
+                'type'     => 'raw',
+                'boolean'  => $boolean,
+                'sql'      => '1 = 0',
+                'bindings' => [],
+            ], $boolean);
         }
 
         $placeholders = [];
-        foreach ( $values as $index => $value ) {
-            $param                = ":{$column}_{$index}";
-            $placeholders[]       = $param;
-            self::$params[$param] = $value;
+        foreach ( $values as $v ) {
+            $key            = $this->bind($v);
+            $placeholders[] = ':' . $key;
         }
 
-        $placeholdersStr = implode(', ', $placeholders);
-        $condition       = "{$column} IN ({$placeholdersStr})";
-
-        if ( empty(self::$query) ) {
-            self::$query = " WHERE {$condition}";
-        }
-        else {
-            self::$query .= " {$type} {$condition}";
-        }
-
-        return new self();
+        return $this->addWhere([
+            'type'     => 'raw',
+            'boolean'  => $boolean,
+            'sql'      => $column . ' IN (' . implode(', ', $placeholders) . ')',
+            'bindings' => [],
+        ], $boolean);
     }
 
-    public static function orWhere( $column, $operator = null, $value = null ) {
-        return self::where($column, $operator, $value, 'OR');
+    private function addWhere( array $node, string $boolean ): self {
+        $node['boolean'] = strtolower($boolean);
+        $this->wheres[]  = $node;
+        return $this;
     }
 
-    public static function whereNotNull( $column, $type = 'AND' ) {
-        $condition = "$column IS NOT NULL";
-
-        if ( empty(self::$query) ) {
-            self::$query = " WHERE $condition";
-        }
-        else {
-            self::$query .= " $type $condition";
-        }
-
-        return new self();
+    private function bind( $value ): string {
+        $k                  = 'b' . count($this->bindings);
+        $this->bindings[$k] = $value;
+        return $k;
     }
 
-    public static function whereNull( $column, $type = 'AND' ) {
-        $condition = "$column IS NULL";
-
-        if ( empty(self::$query) ) {
-            self::$query = " WHERE $condition";
+    public function whereArray( array $conds ): self {
+        foreach ( $conds as $column => $value ) {
+            $this->where($column, $value);
         }
-        else {
-            self::$query .= " $type $condition";
-        }
-
-        return new self();
+        return $this;
     }
 
-    public static function orWhereBetween( $column, $values ) {
-        return self::whereBetween($column, $values, 'OR');
+    public function where( $col, $op = null, $value = null, $boolean = 'and' ): self {
+        if ( func_num_args() === 2 ) {
+            $value = $op;
+            $op    = '=';
+        }
+        $key = $this->bind($value);
+
+        return $this->addWhere([
+            'type'     => 'basic',
+            'column'   => $col,
+            'operator' => $op,
+            'value'    => $key,
+        ], $boolean);
     }
 
-    public static function whereBetween( $column, $values, $type = 'AND' ) {
-        if ( !is_array($values) || count($values) !== 2 ) {
-            throw new InvalidArgumentException("whereBetween requires an array with exactly two values");
-        }
-
-        $param1 = ":{$column}_start";
-        $param2 = ":{$column}_end";
-
-        $condition = "{$column} BETWEEN {$param1} AND {$param2}";
-
-        if ( empty(self::$query) ) {
-            self::$query = " WHERE {$condition}";
-        }
-        else {
-            self::$query .= " {$type} {$condition}";
-        }
-
-        self::$params[$param1] = $values[0];
-        self::$params[$param2] = $values[1];
-
-        return new self();
+    public function whereNotIn( string $col, array $values, string $boolean = 'and' ): self {
+        $keys = $this->bindArray($values);
+        return $this->addWhere([
+            'type'   => 'not_in',
+            'column' => $col,
+            'values' => $keys,
+        ], $boolean);
     }
 
-    public static function orderBy( $column, $direction ) {
-        if ( empty($direction) ) {
-            $direction = $column;
-            $column    = 'id';
-        }
-
-        $direction = strtoupper($direction);
-
-        if ( $direction === 'MIN' ) {
-            $direction = 'ASC';
-        }
-        elseif ( $direction === 'MAX' ) {
-            $direction = 'DESC';
-        }
-
-        if ( !in_array($direction, [ 'ASC', 'DESC' ]) ) {
-            throw new InvalidArgumentException("Invalid order direction: $direction");
-        }
-
-        self::$ORDER = " ORDER BY $column $direction";
-
-        return new self();
+    private function bindArray( array $values ): array {
+        return array_map(fn( $v ) => $this->bind($v), $values);
     }
 
-    public static function limit( $limit ) {
-        self::$limit = " LIMIT $limit";
-
-        return new self();
+    public function whereBetween( string $col, array $vals, string $boolean = 'and' ): self {
+        $keys = $this->bindArray($vals);
+        return $this->addWhere([
+            'type'   => 'between',
+            'column' => $col,
+            'values' => $keys,
+        ], $boolean);
     }
 
-    public static function createOrFirst( $conditions, $data = [] ) {
-        $record = self::Table(self::$table)->where($conditions)->first();
-
-        if ( $record ) {
-            $record->is_updated = false;
-            return $record;
-        }
-
-        $instance = new self();
-        $allData  = array_merge($conditions, $data);
-
-        foreach ( $allData as $key => $value ) {
-            $instance->$key = $value;
-        }
-
-        $instance->save();
-        $id = $instance->data['id'];
-
-        $final             = self::Table(self::$table)->where('id', $id)->first();
-        $final->is_updated = true;
-
-        return $final;
+    public function orWhereNotNull( string $column ): self {
+        return $this->whereNotNull($column, 'or');
     }
 
-    public static function first() {
-        self::$limit = ' LIMIT 1';
-        $results = self::get();
-
-        if (is_array($results) && count($results) > 0) {
-            return $results[0];
-        }
-
-        return false;
+    public function whereNotNull( string $column, string $boolean = 'and' ): self {
+        return $this->addWhere([
+            'type'    => 'raw',
+            'boolean' => $boolean,
+            'sql'     => "{$column} IS NOT NULL",
+        ], $boolean);
     }
 
-    public static function get() {
-        $selectPart = self::$distinct ? 'SELECT DISTINCT ' . self::$columns : 'SELECT ' . self::$columns;
-        $sql        = $selectPart . ' FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
+    public function whereNotBetween( string $col, array $vals, string $boolean = 'and' ): self {
+        $keys = $this->bindArray($vals);
+        return $this->addWhere([
+            'type'   => 'not_between',
+            'column' => $col,
+            'values' => $keys,
+        ], $boolean);
+    }
 
-        $stmt = self::$connection->prepare($sql);
+    public function whereDate( $col, $val, $boolean = 'and' ): self {
+        return $this->rawCompare("DATE($col)", '=', $val, $boolean);
+    }
 
-        foreach ( self::$params as $key => $value ) {
-            $stmt->bindValue($key, $value);
+    private function rawCompare( $raw, $op, $value, $boolean ) {
+        $key = $this->bind($value);
+        return $this->addWhere([
+            'type' => 'raw',
+            'sql'  => "$raw $op :$key",
+        ], $boolean);
+    }
+
+    public function whereMonth( $col, $val, $boolean = 'and' ): self {
+        return $this->rawCompare("MONTH($col)", '=', $val, $boolean);
+    }
+
+    public function whereYear( $col, $val, $boolean = 'and' ): self {
+        return $this->rawCompare("YEAR($col)", '=', $val, $boolean);
+    }
+
+    public function whereDay( $col, $val, $boolean = 'and' ): self {
+        return $this->rawCompare("DAY($col)", '=', $val, $boolean);
+    }
+
+    public function whereRaw( string $sql, array $bindings = [], string $boolean = 'and' ): self {
+        foreach ( $bindings as $v ) {
+            $key = $this->bind($v);
+            $sql = preg_replace('/\?/', ':' . $key, $sql, 1);
         }
 
+        return $this->addWhere([
+            'type' => 'raw',
+            'sql'  => $sql,
+        ], $boolean);
+    }
+
+    public function orWhereGroup( callable $cb ): self {
+        return $this->whereGroup($cb, 'or');
+    }
+
+    public function whereGroup( callable $callback, string $boolean = 'and' ): self {
+        $clone = new static($this->table);
+        $callback($clone);
+
+        foreach ( $clone->bindings as $k => $v ) {
+            $this->bindings[$k] = $v;
+        }
+
+        return $this->addWhere([
+            'type'   => 'group',
+            'wheres' => $clone->wheres,
+        ], $boolean);
+    }
+
+    public function count(): int {
+        $sql = $this->buildSQL();
+        $sql = preg_replace('/SELECT(.*?)FROM/i', 'SELECT COUNT(*) as c FROM', $sql);
+
+        $row = $this->execute($sql)->fetch(PDO::FETCH_ASSOC);
+        return intval($row['c'] ?? 0);
+    }
+
+    private function execute( string $sql ) {
+        $stmt = Database::pdo()->prepare($sql);
+        foreach ( $this->bindings as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
+        }
         $stmt->execute();
+        return $stmt;
+    }
 
-        $result = $stmt->fetchAll(PDO::FETCH_OBJ);
-
-        if ( count($result) === 0 ) {
-            return false;
+    public function delete(): bool {
+        if ( !$this->modelInstance ) {
+            throw new \Exception("Delete requires loaded model");
         }
 
-        return $result;
-    }
+        $pk      = $this->modelInstance->primaryKey;
+        $pkValue = $this->modelInstance->data[$pk] ?? null;
 
-    public static function Table( $table ) {
-        self::$table    = $table;
-        self::$query    = '';
-        self::$ORDER    = '';
-        self::$limit    = '';
-        self::$distinct = false;
-        self::$columns  = '*';
-        self::$params   = [];
-
-        return new self();
-    }
-
-    public function save( $params = null ) {
-        try {
-            if ( is_array($params) ) {
-                $keys   = array_keys($params);
-                $column = $keys[0];
-                $id     = $params[$column];
-            }
-            else {
-                $column = 'id';
-                $id     = $params;
-            }
-
-            if ( empty($id) ) {
-                $columns      = implode(', ', array_keys($this->data));
-                $placeholders = ':' . implode(', :', array_keys($this->data));
-                $sql          = 'INSERT INTO ' . self::$table . " ($columns) VALUES ($placeholders)";
-                $stmt         = self::$connection->prepare($sql);
-
-                foreach ( $this->data as $key => $value ) {
-                    $stmt->bindValue(":$key", $value, is_null($value) ? PDO::PARAM_NULL : PDO::PARAM_STR);
-                }
-
-                if ( !$stmt->execute() ) {
-                    $errorInfo = $stmt->errorInfo();
-                    throw new Exception("Failed to execute INSERT query: " . $errorInfo[2]);
-                }
-
-                $lastId           = self::$connection->lastInsertId();
-                $this->data['id'] = $lastId;
-
-                return self::Table(self::$table)->where('id', $lastId)->first();
-            }
-            else {
-                $set          = '';
-                $updateParams = [];
-
-                foreach ( $this->data as $col => $value ) {
-                    $set                          .= "$col = :update_$col, ";
-                    $updateParams[":update_$col"] = $value;
-                }
-                $set = rtrim($set, ', ');
-
-                $sql                       = 'UPDATE ' . self::$table . " SET $set WHERE $column = :where_id";
-                $updateParams[':where_id'] = $id;
-
-                $stmt = self::$connection->prepare($sql);
-
-                foreach ( $updateParams as $param => $value ) {
-                    $stmt->bindValue($param, $value, is_null($value) ? PDO::PARAM_NULL : PDO::PARAM_STR);
-                }
-
-                if ( !$stmt->execute() ) {
-                    $errorInfo = $stmt->errorInfo();
-                    throw new Exception("Failed to execute UPDATE query: " . $errorInfo[2]);
-                }
-
-                return self::Table(self::$table)->where($column, $id)->first();
-            }
-        } catch ( Exception $e ) {
-            error_log($e->getMessage());
-            throw $e;
-        }
-    }
-
-    public static function all() {
-        self::$columns  = '*';
-        self::$query    = '';
-        self::$ORDER    = '';
-        self::$limit    = '';
-        self::$distinct = false;
-        self::$params   = [];
-
-        return self::get();
-    }
-
-    public static function updateOrInsert( $conditions, $data ) {
-        return self::createOrUpdate($conditions, $data);
-    }
-
-    public static function createOrUpdate( $conditions, $data = [] ) {
-        $record = self::Table(self::$table)->where($conditions)->first();
-
-        $instance = new self();
-        $allData  = array_merge($conditions, $data);
-
-        foreach ( $allData as $key => $value ) {
-            $instance->$key = $value;
+        if ( $pkValue === null ) {
+            throw new \Exception("Delete requires ID");
         }
 
-        if ( $record ) {
-            $instance->save($conditions);
+        $sql = "DELETE FROM {$this->table} WHERE {$pk} = :id";
 
-            reset($conditions);
-            $conditionKey = key($conditions);
-            $id           = $conditions[$conditionKey];
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->bindValue(':id', $pkValue);
+        $ok = $stmt->execute();
 
-            $final             = self::Table(self::$table)->where($conditionKey, $id)->first();
-            $final->is_updated = true;
-
-            return $final;
+        if ( $ok ) {
+            $this->modelInstance->data = [];
         }
-        else {
-            $instance->save();
 
-            $id                = $instance->data['id'];
-            $final             = self::Table(self::$table)->where('id', $id)->first();
-            $final->is_updated = false;
+        return $ok;
+    }
 
-            return $final;
+    public function selectRaw( string $sql ): self {
+        $this->select[] = $sql;
+        return $this;
+    }
+
+    public function updateOrInsert( array $attributes, array $values = [] ) {
+        $query = new static($this->table);
+        $query->attachModelClass($this->modelClass);
+
+        foreach ( $attributes as $col => $val ) {
+            $query->where($col, '=', $val);
         }
+
+        $row = $query->first();
+
+        if ( $row ) {
+            // update
+            return $query->update($values);
+        }
+
+        // insert
+        $data = array_merge($attributes, $values);
+        $now  = $this->date();
+        if ( $this->modelInstance && $this->modelInstance->timestamps ) {
+            if ( !isset($data['created_at']) ) $data['created_at'] = $now;
+            if ( !isset($data['updated_at']) ) $data['updated_at'] = $now;
+        }
+
+        $cols = array_keys($data);
+        $vals = array_map(fn( $c ) => ':' . $c, $cols);
+
+        $sql = "INSERT INTO {$this->table} (" . implode(',', $cols) . ")
+            VALUES (" . implode(',', $vals) . ")";
+
+        $stmt = Database::pdo()->prepare($sql);
+
+        foreach ( $data as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
+        }
+
+        return $stmt->execute();
     }
 
-    public static function query( $sql ) {
-        self::table('');
-        $stmt = self::$connection->prepare($sql);
-        $stmt->execute();
-
-        return $stmt->fetchAll(PDO::FETCH_OBJ);
-    }
-
-    public static function SQL() {
-        $selectPart = self::$distinct ? 'SELECT DISTINCT ' . self::$columns : 'SELECT ' . self::$columns;
-
-        return $selectPart . ' FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
-    }
-
-    public function distinct() {
-        self::$distinct = true;
+    public function attachModelClass( string $modelClass ) {
+        $this->modelClass    = $modelClass;
+        $this->modelInstance = new $modelClass();
 
         return $this;
     }
 
-    public function exists() {
-        $result = self::first();
-        if ( $result ) {
-            return true;
+    public function first() {
+        $this->limit(1);
+        return $this->get()[0] ?? null;
+    }
+
+    public function limit( int $l ): self {
+        $this->limit = $l;
+        return $this;
+    }
+
+    public function get() {
+        $rows = $this->execute($this->buildSQL())->fetchAll(PDO::FETCH_ASSOC);
+
+        if ( !$this->modelClass ) return $rows;
+
+        $models = [];
+        foreach ( $rows as $r ) {
+            $inst       = new $this->modelClass();
+            $inst->data = $r;
+            $models[]   = $inst;
         }
-        {
-            return false;
+
+        if ( !empty($this->with) ) {
+            $this->eagerLoad($models);
+        }
+
+        return $models;
+    }
+
+    private function eagerLoad( array &$models ) {
+        if ( empty($models) ) return;
+
+        foreach ( $this->with as $relationPath ) {
+            $this->loadRelationPath($models, $relationPath);
         }
     }
 
-    public function __set( $name, $value ) {
-        $this->data[$name] = $value;
+    private function loadRelationPath( &$models, string $path ) {
+        $parts = explode('.', $path);
+        $this->loadRelationLevel($models, $parts);
     }
 
-    public function count() {
-        $sql = 'SELECT COUNT(*) FROM ' . self::$table . self::$query . self::$ORDER . self::$limit;
+    private function loadRelationLevel( &$models, array $parts ) {
+        if ( empty($parts) ) return;
 
-        $stmt = self::$connection->prepare($sql);
+        $relation = array_shift($parts);
 
-        foreach ( self::$params as $key => $value ) {
-            $stmt->bindValue($key, $value);
+        $first = $models[0];
+        if ( !method_exists($first, $relation) ) return;
+
+        $info = $first->$relation();
+
+        $type    = $info['type'];
+        $related = $info['related'];
+
+        $relatedInst = new $related();
+        $table       = $this->getModelTable($relatedInst);
+
+        $foreignKey = $info['foreignKey'];
+        $localKey   = $info['localKey'] ?? $info['ownerKey'];
+
+        if ( $type === 'hasMany' ) {
+            $this->loadHasMany($models, $related, $table, $foreignKey, $localKey, $relation, $parts);
+        }
+        else {
+            $this->loadBelongsTo($models, $related, $table, $foreignKey, $localKey, $relation, $parts);
+        }
+    }
+
+    private function getModelTable( object $model ): string {
+        if ( method_exists($model, 'getTableName') ) {
+            return $model->getTableName();
+        }
+
+        if ( property_exists($model, 'table') ) {
+            return $model->table;
+        }
+
+        throw new Exception("Model " . get_class($model) . " must define protected \$table()");
+    }
+
+    private function loadHasMany( &$models, $related, $table, $foreign, $local, $name, $children ) {
+        $ids = array_map(fn( $m ) => $m->data[$local], $models);
+        $ids = array_unique($ids);
+
+        if ( empty($ids) ) return;
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $sql  = "SELECT * FROM $table WHERE $foreign IN ($placeholders)";
+        $stmt = Database::pdo()->prepare($sql);
+
+        foreach ( array_values($ids) as $i => $v ) {
+            $stmt->bindValue($i + 1, $v);
+        }
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $group = [];
+        foreach ( $rows as $r ) {
+            $group[$r[$foreign]][] = $r;
+        }
+
+        foreach ( $models as $m ) {
+            $key            = $m->data[$local];
+            $childrenModels = [];
+
+            foreach ( $group[$key] ?? [] as $r ) {
+                $obj              = new $related();
+                $obj->data        = $r;
+                $childrenModels[] = $obj;
+            }
+
+            $m->data[$name] = $childrenModels;
+
+            if ( !empty($children) ) {
+                $this->loadRelationLevel($childrenModels, $children);
+            }
+        }
+    }
+
+    private function loadBelongsTo( &$models, $related, $table, $foreign, $owner, $name, $children ) {
+        $ids = array_filter(array_map(fn( $m ) => $m->data[$foreign] ?? null, $models));
+        $ids = array_unique($ids);
+
+        if ( empty($ids) ) {
+            foreach ( $models as $m ) {
+                $m->data[$name] = null;
+            }
+            return;
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+        $sql  = "SELECT * FROM $table WHERE $owner IN ($placeholders)";
+        $stmt = Database::pdo()->prepare($sql);
+
+        foreach ( array_values($ids) as $i => $v ) {
+            $stmt->bindValue($i + 1, $v);
+        }
+        $stmt->execute();
+
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $map = [];
+        foreach ( $rows as $r ) {
+            $o               = new $related();
+            $o->data         = $r;
+            $map[$r[$owner]] = $o;
+        }
+
+        foreach ( $models as $m ) {
+            $fid            = $m->data[$foreign] ?? null;
+            $m->data[$name] = $map[$fid] ?? null;
+
+            if ( $m->data[$name] && !empty($children) ) {
+                $cArr = [ $m->data[$name] ];
+                $this->loadRelationLevel($cArr, $children);
+            }
+        }
+    }
+
+    public function update( array $values ) {
+        if ( empty($this->wheres) ) {
+            throw new Exception("Update requires at least one WHERE clause.");
+        }
+
+        if ( $this->modelInstance && $this->modelInstance->timestamps ) {
+            $values['updated_at'] = $this->date();
+        }
+
+        // set bindings
+        $setParts = [];
+        foreach ( $values as $col => $val ) {
+            $key        = $this->bind($val);
+            $setParts[] = "$col = :$key";
+        }
+
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $setParts);
+
+        if ( !empty($this->wheres) ) {
+            $sql .= " WHERE " . $this->compileWhereTree($this->wheres);
+        }
+
+        $stmt = Database::pdo()->prepare($sql);
+
+        foreach ( $this->bindings as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
         }
 
         $stmt->execute();
-
-        return $stmt->fetchColumn();
+        return $stmt->rowCount();
     }
 
-    public function create( $data ) {
-        return self::Table(self::$table)->insert($data);
+    public function date(): string {
+        return date('Y-m-d H:i:s');
     }
 
-    public function insert( $data ) {
-        if ( is_array($data) ) {
-            $columns      = implode(', ', array_keys($data));
-            $placeholders = ':' . implode(', :', array_keys($data));
-            $stmt         = self::$connection->prepare('INSERT INTO ' . self::$table . " ($columns) VALUES ($placeholders)");
-            foreach ( $data as $key => $value ) {
-                $stmt->bindValue(":$key", $value);
-            }
-
-            return $stmt->execute();
-        }
-        else {
-            $stmt = self::$connection->prepare('INSERT INTO ' . self::$table . ' (name) VALUES (:name)');
-            $stmt->bindValue(':name', $data);
-
-            return $stmt->execute();
-        }
-    }
-
-    public function update( $params, $data = null ) {
-        if ( $data === null && is_array($params) ) {
-            $data   = $params;
-            $params = null;
+    public function insert( array $data ) {
+        if ( $this->modelInstance && $this->modelInstance->timestamps ) {
+            $data['created_at'] = $this->date();
+            $data['updated_at'] = $this->date();
         }
 
-        if ( empty(self::$query) ) {
-            if ( is_array($params) ) {
-                foreach ( $params as $column => $value ) {
-                    self::$query                .= empty(self::$query) ? " WHERE $column = :w_$column" : " AND $column = :w_$column";
-                    self::$params[":w_$column"] = $value;
-                }
-            }
-            elseif ( $params !== null ) {
-                self::$query           = ' WHERE id = :w_id';
-                self::$params[':w_id'] = $params;
-            }
-            else {
-                throw new Exception('Missing WHERE clause for update.');
-            }
-        }
+        $cols = array_keys($data);
+        $vals = array_map(fn( $c ) => ':' . $c, $cols);
 
-        $set = '';
-        foreach ( $data as $column => $value ) {
-            $set                        .= "$column = :s_$column, ";
-            self::$params[":s_$column"] = $value;
-        }
-        $set = rtrim($set, ', ');
+        $sql = "INSERT INTO {$this->table} (" . implode(',', $cols) . ")
+            VALUES (" . implode(',', $vals) . ")";
 
-        $query = 'UPDATE ' . self::$table . ' SET ' . $set . self::$query;
+        $stmt = Database::pdo()->prepare($sql);
 
-        $stmt = self::$connection->prepare($query);
-
-        foreach ( self::$params as $key => $value ) {
-            $stmt->bindValue($key, $value);
+        foreach ( $data as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
         }
 
         return $stmt->execute();
     }
 
-    public function delete( $params = null ) {
-        if ( empty(self::$query) ) {
-            if ( is_int($params) ) {
-                self::$query         = ' WHERE id = :id';
-                self::$params[':id'] = $params;
-            }
-            elseif ( is_array($params) ) {
-                foreach ( $params as $column => $value ) {
-                    self::$query                .= empty(self::$query) ? " WHERE $column = :w_$column" : " AND $column = :w_$column";
-                    self::$params[":w_$column"] = $value;
-                }
-            }
-            elseif ( $params === null ) {
-                throw new Exception('Missing WHERE clause for delete.');
-            }
-        }
-        $sql  = 'DELETE FROM ' . self::$table . self::$query;
-        $stmt = self::$connection->prepare($sql);
+    public function createOrUpdate( array $attributes, array $values = [] ) {
+        $query = new static($this->table);
+        $query->attachModelClass($this->modelClass);
 
-        foreach ( self::$params as $key => $value ) {
-            $stmt->bindValue($key, $value);
+        // apply where filters
+        foreach ( $attributes as $col => $val ) {
+            $query->where($col, $val);
         }
 
-        return $stmt->execute();
+        // 1) try find
+        $model = $query->first();
+
+        // 2) update
+        if ( $model ) {
+            foreach ( $values as $k => $v ) {
+                $model->data[$k] = $v;
+            }
+            return $model->save();
+        }
+
+        // 3) create
+        $class     = $this->modelClass;
+        $obj       = new $class();
+        $obj->data = array_merge($attributes, $values);
+
+        return $obj->save();
+    }
+
+    public function save() {
+        $data =& $this->modelInstance->data;
+        $pk   = $this->modelInstance->primaryKey;
+
+        if ( empty($data[$pk]) || !isset($data[$pk]) ) {
+            // INSERT
+            if ( $this->modelInstance->timestamps ) {
+                $data['created_at'] = $this->date();
+                $data['updated_at'] = $this->date();
+            }
+
+            $cols = array_keys($data);
+            $vals = array_map(fn( $c ) => ':' . $c, $cols);
+
+            $sql = "INSERT INTO {$this->table} (" . implode(',', $cols) . ")
+                VALUES (" . implode(',', $vals) . ")";
+
+            $stmt = Database::pdo()->prepare($sql);
+            foreach ( $data as $k => $v ) {
+                $stmt->bindValue(":$k", $v);
+            }
+            $stmt->execute();
+
+            // ⚠️ کلید این خط است:
+            $insertedId = Database::pdo()->lastInsertId();
+            $data[$pk]  = $insertedId;  // id را در data تنظیم کن
+
+            return $this->fresh($insertedId);
+        }
+
+        // UPDATE
+        if ( $this->modelInstance->timestamps ) {
+            $data['updated_at'] = $this->date();
+        }
+
+        $setParts = [];
+        foreach ( $data as $k => $v ) {
+            if ( $k === $pk ) continue;
+            $setParts[] = "$k = :$k";
+        }
+
+        $sql = "UPDATE {$this->table} SET " . implode(', ', $setParts) . " WHERE {$pk} = :{$pk}";
+
+        $stmt = Database::pdo()->prepare($sql);
+        foreach ( $data as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
+        }
+        $stmt->execute();
+
+        return $this->fresh($data[$pk]);
+    }
+
+    public function fresh( $id ) {
+        $sql  = "SELECT * FROM {$this->table} WHERE id = :id LIMIT 1";
+        $stmt = Database::pdo()->prepare($sql);
+        $stmt->bindValue(":id", $id);
+        $stmt->execute();
+
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ( !$row ) return null;
+
+        $obj       = new $this->modelClass();
+        $obj->data = $row;
+        return $obj;
+    }
+
+    public function search( string $column, string $keyword, string $boolean = 'and' ): self {
+        return $this->whereLike($column, $keyword, $boolean);
+    }
+
+    public function whereLike( string $column, string $keyword ): self {
+        $param = $this->bind('%' . $keyword . '%');
+
+        return $this->addWhere([
+            'type'     => 'basic',
+            'column'   => $column,
+            'operator' => 'LIKE',
+            'value'    => $param,
+        ], 'and');
+    }
+
+    public function searchMulti( array $columns, string $keyword, string $boolean = 'and' ): self {
+        return $this->whereGroup(function ( $q ) use ( $columns, $keyword, $boolean ) {
+            foreach ( $columns as $c ) {
+                $q->orWhereLike($c, $keyword);
+            }
+        }, $boolean);
+    }
+
+    public function orWhereLike( string $column, string $keyword ): self {
+        $param = $this->bind('%' . $keyword . '%');
+
+        return $this->addWhere([
+            'type'     => 'basic',
+            'column'   => $column,
+            'operator' => 'LIKE',
+            'value'    => $param,
+        ], 'or');
+    }
+
+    public function orWhere( $col, $op = null, $val = null ): self {
+        if ( func_num_args() === 2 ) {
+            $val = $op;
+            $op  = '=';
+        }
+
+        return $this->where($col, $op, $val, 'or');
+    }
+
+    public function updateOrCreate( array $attributes, array $values = [] ) {
+        $query = new static($this->table);
+        $query->attachModelClass($this->modelClass);
+
+        foreach ( $attributes as $col => $val ) {
+            $query->where($col, $val);
+        }
+
+        $model = $query->first();
+
+        if ( $model ) {
+            foreach ( $values as $k => $v ) {
+                $model->data[$k] = $v;
+            }
+            return $model->save();
+        }
+
+        $class   = $this->modelClass;
+        $m       = new $class();
+        $m->data = array_merge($attributes, $values);
+        return $m->save();
+    }
+
+    public function firstOrCreate( array $attributes, array $values = [] ) {
+        $model = $this->firstOrNew($attributes, $values);
+
+        if ( !isset($model->data['id']) ) {
+            return $model->save();
+        }
+
+        return $model;
+    }
+
+    public function firstOrNew( array $attributes, array $values = [] ) {
+        $query = new static($this->table);
+        $query->attachModelClass($this->modelClass);
+
+        foreach ( $attributes as $col => $val ) {
+            $query->where($col, $val);
+        }
+
+        $model = $query->first();
+
+        if ( $model ) {
+            $model->is_created = false;
+            return $model;
+        }
+
+        $class   = $this->modelClass;
+        $m       = new $class();
+        $m->data = array_merge($attributes, $values);
+
+        $m->save();
+        $m->is_created = true;
+
+        return $m;
+    }
+
+    public function increment( string $column, int $amount = 1 ) {
+        return $this->increaseColumn($column, $amount);
+    }
+
+    private function increaseColumn( string $column, int $amount ) {
+        if ( empty($this->wheres) ) {
+            throw new Exception("Increment/Decrement requires a WHERE clause.");
+        }
+
+        $whereBindings  = $this->bindings;
+        $this->bindings = [];
+
+        foreach ( $whereBindings as $k => $v ) {
+            $this->bindings[$k] = $v;
+        }
+
+        $incKey = $this->bind($amount);
+        $updKey = $this->bind($this->date());
+
+        $sql = "
+        UPDATE {$this->table}
+        SET $column = $column + :$incKey,
+            updated_at = :$updKey
+        WHERE " . $this->compileWhereTree($this->wheres);
+
+        $stmt = Database::pdo()->prepare($sql);
+
+        foreach ( $this->bindings as $k => $v ) {
+            $stmt->bindValue(":$k", $v);
+        }
+
+        $stmt->execute();
+        return $stmt->rowCount();
+    }
+
+    public function decrement( string $column, int $amount = 1 ) {
+        return $this->increaseColumn($column, - $amount);
     }
 }

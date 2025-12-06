@@ -5,39 +5,31 @@ namespace natilosir\orm;
 use PDO;
 use PDOException;
 
-class Database
-{
-    private $host; // Database host
+class Database {
+    private static ?PDO $pdo = null;
 
-    private $db_name; // Database name
-
-    private $username; // Database username
-
-    private $password; // Database password
-
-    private $connection;
-
-    public function __construct()
-    {
-        $config = require __DIR__.'/../../../../config.php';
-
-        $this->host     = $config['database']['host'];
-        $this->db_name  = $config['database']['database'];
-        $this->username = $config['database']['user'];
-        $this->password = $config['database']['password'];
-    }
-
-    public function getConnection()
-    {
-        $this->connection = null;
-
-        try {
-            $this->connection = new PDO("mysql:host={$this->host};dbname={$this->db_name};charset=utf8mb4", $this->username, $this->password);
-            $this->connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (PDOException $exception) {
-            echo 'Connection error: '.$exception->getMessage();
+    public static function pdo(): PDO {
+        if ( self::$pdo !== null ) {
+            return self::$pdo;
         }
 
-        return $this->connection;
+        $config = require __DIR__ . '/../../../../config.php';
+
+        $host     = $config['database']['host'];
+        $db_name  = $config['database']['database'];
+        $username = $config['database']['user'];
+        $password = $config['database']['password'];
+
+        try {
+            self::$pdo = new PDO("mysql:host={$host};dbname={$db_name};charset=utf8mb4", $username, $password, [
+                PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES   => false,
+            ]);
+        } catch ( PDOException $e ) {
+            throw new \Exception("DB Connection failed: " . $e->getMessage());
+        }
+
+        return self::$pdo;
     }
 }
